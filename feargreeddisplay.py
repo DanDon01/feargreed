@@ -4,10 +4,12 @@ from PIL import Image, ImageDraw, ImageFont
 from pathlib import Path
 import numpy as np
 import qrcode
-from datetime import datetime
+from datetime import datetime, timedelta
 from displayhatmini import DisplayHATMini
 from displayhatmini.lcd import LCD_WIDTH, LCD_HEIGHT
 import colorzero  # For RGB LED colors
+import matplotlib.pyplot as plt
+from io import BytesIO
 
 def load_gif_frames(gif_path):
     """Load a GIF and convert frames to format suitable for display"""
@@ -72,6 +74,7 @@ class DisplayMode:
     VOLUME = 'volume'
     QR_CODE = 'qr_code'
     CONFIG = 'config'
+    HISTORICAL_GRAPH = 'historical_graph'
 
 class Config:
     def __init__(self):
@@ -239,6 +242,71 @@ def set_mood_led(value):
     else:  # Extreme greed - deep green
         display.set_led(0, 128, 0)
 
+def get_historical_fear_greed():
+    """Fetch historical Fear & Greed data"""
+    try:
+        url = "https://api.alternative.me/fng/?limit=100"
+        response = requests.get(url)
+        data = response.json()
+        values = [(int(entry['value']), 
+                  datetime.fromtimestamp(int(entry['timestamp']))) 
+                  for entry in data['data']]
+        return values
+    except:
+        return None
+
+def display_historical_graph(disp):
+    """Create and display historical Fear & Greed graph"""
+    values = get_historical_fear_greed()
+    if not values:
+        return [create_error_image()]
+
+    # Create figure with transparent background
+    plt.figure(figsize=(1.6, 1.28), dpi=100)
+    plt.style.use('dark_background')
+    
+    # Unpack data
+    fear_greed_values, dates = zip(*values)
+    
+    # Create line plot
+    plt.plot(dates, fear_greed_values, color='white', linewidth=1)
+    
+    # Add horizontal lines for fear/greed zones
+    plt.axhline(y=25, color='red', linestyle='--', alpha=0.3)    # Extreme Fear
+    plt.axhline(y=75, color='green', linestyle='--', alpha=0.3)  # Extreme Greed
+    
+    # Customize appearance
+    plt.fill_between(dates, fear_greed_values, 
+                    where=[v <= 25 for v in fear_greed_values], 
+                    color='red', alpha=0.2)
+    plt.fill_between(dates, fear_greed_values, 
+                    where=[v >= 75 for v in fear_greed_values], 
+                    color='green', alpha=0.2)
+    
+    # Remove axes labels and ticks
+    plt.xticks([])
+    plt.yticks([0, 25, 50, 75, 100])
+    
+    # Add current value
+    current_value = fear_greed_values[0]
+    plt.text(0.02, 0.95, f"Current: {current_value}", 
+             transform=plt.gca().transAxes, 
+             color='white', fontsize=8)
+    
+    # Convert to image
+    buf = BytesIO()
+    plt.savefig(buf, format='png', 
+                bbox_inches='tight', 
+                transparent=True)
+    plt.close()
+    
+    # Convert to PIL Image
+    buf.seek(0)
+    graph_image = Image.open(buf)
+    graph_image = graph_image.resize((width, height))
+    
+    return [graph_image]
+
 def main():
     display.on()
     display.set_backlight(1.0)
@@ -249,7 +317,10 @@ def main():
 
     config = Config.load()
     
-    modes = [DisplayMode.FEAR_GREED, DisplayMode.PRICE_TICKER, DisplayMode.MONEY_FLOW]
+    modes = [DisplayMode.FEAR_GREED, 
+             DisplayMode.PRICE_TICKER, 
+             DisplayMode.MONEY_FLOW,
+             DisplayMode.HISTORICAL_GRAPH]  # Add historical graph mode
     current_mode_index = 0
     transition_functions = [Transitions.slide_left, Transitions.fade, Transitions.slide_up]
     
@@ -271,6 +342,8 @@ def main():
                 current_frames = load_gif_frames(get_mood_gif(value))
             elif current_mode == DisplayMode.PRICE_TICKER:
                 current_frames = [display_price_ticker(display)]
+            elif current_mode == DisplayMode.HISTORICAL_GRAPH:
+                current_frames = display_historical_graph(display)
             else:  # MONEY_FLOW
                 current_frames = display_money_flow(display)
             
@@ -290,6 +363,8 @@ def main():
                 next_frames = load_gif_frames(get_mood_gif(value))
             elif modes[next_mode_index] == DisplayMode.PRICE_TICKER:
                 next_frames = [display_price_ticker(display)]
+            elif modes[next_mode_index] == DisplayMode.HISTORICAL_GRAPH:
+                next_frames = display_historical_graph(display)
             else:  # MONEY_FLOW
                 next_frames = display_money_flow(display)
             

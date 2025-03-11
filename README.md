@@ -336,7 +336,66 @@ Follow PEP 8 guidelines
 - Invalid response received
 - Retries after 60 seconds
 - Logs errors to `error.log`
-  
+
+## Display Modes
+
+### 1. Fear & Greed Index
+- Shows current market sentiment (0-100)
+- Updates every 5 minutes
+- Displays corresponding animated GIF
+
+### 2. Historical Graph
+- Real-time Fear & Greed trend visualization
+- Last 100 data points plotted
+- Color zones:
+  - Red: Extreme Fear (<25)
+  - Yellow: Fear (26-45)
+  - White: Neutral (46-55)
+  - Light Green: Greed (56-75)
+  - Dark Green: Extreme Greed (>75)
+- Features:
+  - Auto-scaling display
+  - Current value indicator
+  - Trend line visualization
+  - Zone highlighting
+  - Dark theme optimized for LCD
+
+### 3. Price Ticker
+- Current BTC price
+- 24h change percentage
+- Directional indicators
+
+### 4. Money Flow
+- Market momentum visualization
+- Buy/Sell pressure indicators
+- Volume analysis
+
+## Display Controls
+
+### Button Functions
+- A (GPIO 5): Cycle display modes
+- B (GPIO 6): Toggle historical view (1D/7D/30D)
+- X (GPIO 16): Adjust brightness
+- Y (GPIO 24): Toggle backlight
+
+### Display Settings
+```python
+# Adjust in config.py
+GRAPH_UPDATE_INTERVAL = 300  # 5 minutes
+DISPLAY_ROTATION = 0        # 0/90/180/270 degrees
+BRIGHTNESS = 100            # 0-100%
+COLOR_THEME = "dark"        # dark/light
+```
+
+### Graph Customization
+- Resolution: 160x128 pixels
+- Update frequency: Every 5 minutes
+- Historical data: 100 points
+- Visualization options:
+  - Line graph
+  - Candlestick view
+  - Heat map mode
+
 ## Need Help?
 Create an issue on GitHub
 Check https://thepihut.com/products/display-hat-mini

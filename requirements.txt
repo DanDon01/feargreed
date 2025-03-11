@@ -4,3 +4,4 @@ ST7735==0.0.5
 numpy==1.24.3
 qrcode==7.4.2
 RPi.GPIO==0.7.1
+matplotlib>=3.5.0
