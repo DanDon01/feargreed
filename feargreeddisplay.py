@@ -54,9 +54,14 @@ def get_fear_greed_index():
         return "Error fetching data"
 
 # Initialize the display
+width, height = 320, 240
+buffer = Image.new("RGB", (width, height))
 display = DisplayHATMini()
 width = display.WIDTH
 height = display.HEIGHT
+
+
+
 # display = ST7789()
 # display.set_backlight(1.0)
 # width = LCD_WIDTH
