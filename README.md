@@ -19,6 +19,7 @@ A Raspberry Pi project that displays the current Bitcoin Fear & Greed Index on a
 ## Setup
 
 1. Connect the ST7735 display to your Raspberry Pi
+2. 
 2. Install required packages:
    ```bash
    pip install requests pillow ST7735
@@ -263,7 +264,6 @@ View test coverage report:
 ```bash
 pytest --cov=. --cov-report=term-missing
 ```
-
 ### Available Tests
 
 1. **Basic Tests** (`test_general.py`)
@@ -453,6 +453,12 @@ If you want swap to persist after reboot, run:
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ```
 This ensures swap is enabled on startup.
+
+## Install System Requirements (if errors with requirements installing)
+```bash
+xargs sudo apt install -y < requirements-system.txt
+```
+
 
 ## Need Help?
 Create an issue on GitHub
