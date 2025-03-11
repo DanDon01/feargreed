@@ -396,6 +396,64 @@ COLOR_THEME = "dark"        # dark/light
   - Candlestick view
   - Heat map mode
 
+## Troubleshooting Python Package Installation on Raspberry Pi Zero 2 W
+
+### Common Installation Issue: `` Hanging or Failing
+
+Error Message: When running:
+```bash
+pip install -r requirements.txt
+```
+
+- You may encounter an issue where contourpy hangs for a long time at:
+```bash
+Installing backend dependencies ... done
+Preparing metadata (pyproject.toml) ... /
+```
+- Or it fails with an error similar to:
+```bash
+ERROR: Python dependency not found
+../src/meson.build:5:10: ERROR: Python dependency not found
+```
+## Why This Happens:
+
+ 1. Low RAM (512MB) – The Pi Zero 2 W doesn’t have enough memory to compile large packages.
+
+ 2. Missing system dependencies – Some Python packages require additional libraries like python3-dev and meson.
+
+ 3. Pip tries to build from source – Some versions of contourpy don’t have prebuilt wheels for ARM, causing slow compilation.
+
+## 🚀 Fix: Increase Swap Memory to Prevent Crashes
+
+### Since the Pi Zero 2 W has limited RAM, increasing swap space helps prevent system freezes.
+
+1️⃣ Enable a 1GB Swap File
+
+Run these commands:
+```bash
+sudo fallocate -l 1G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+```
+Verify swap is active:
+```bash
+free -h
+```
+Expected output:
+```bash
+            total        used        free      shared  buff/cache   available
+Mem:         480Mi       300Mi        50Mi        20Mi       130Mi       180Mi
+Swap:        1.5Gi       0.0Gi       1.0Gi
+```
+2️⃣ Make Swap Permanent (Optional, but Recommended)
+
+If you want swap to persist after reboot, run:
+```bash 
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+This ensures swap is enabled on startup.
+
 ## Need Help?
 Create an issue on GitHub
 Check https://thepihut.com/products/display-hat-mini
