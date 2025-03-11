@@ -56,7 +56,8 @@ def get_fear_greed_index():
 # Initialize the display
 width, height = 320, 240
 buffer = Image.new("RGB", (width, height))
-display = DisplayHATMini(buffer)
+display = DisplayHATMini(None)  # Use None if buffer isn't needed
+
 width = display.WIDTH
 height = display.HEIGHT
 
@@ -317,7 +318,7 @@ def display_historical_graph(disp):
     return [graph_image]
 
 def main():
-    display.show()
+    display = DisplayHATMini(None)  # Use None if buffer isn't needed
     display.set_backlight(1.0)
     
     # Setup button handlers
