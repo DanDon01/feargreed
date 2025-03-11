@@ -1,0 +1,17 @@
+# Display HAT Mini GPIO Pin Configuration
+BUTTON_A_PIN = 5
+BUTTON_B_PIN = 6
+BUTTON_X_PIN = 16
+BUTTON_Y_PIN = 24
+
+# Display pins
+LCD_DC_PIN = 9      # Data/Command
+LCD_CS_PIN = 7      # LCD SPI CS
+LCD_BACKLIGHT_PIN = 13
+LCD_SCLK_PIN = 11   # SPI Clock
+LCD_MOSI_PIN = 10   # SPI MOSI
+
+# LED pins
+LED_RED_PIN = 17
+LED_GREEN_PIN = 27
+LED_BLUE_PIN = 22
