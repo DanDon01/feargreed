@@ -317,7 +317,7 @@ def display_historical_graph(disp):
     return [graph_image]
 
 def main():
-    display.on()
+    display.show()
     display.set_backlight(1.0)
     
     # Setup button handlers
