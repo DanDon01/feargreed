@@ -6,7 +6,7 @@ import numpy as np
 import qrcode
 from datetime import datetime, timedelta
 from displayhatmini import DisplayHATMini
-from displayhatmini.lcd import LCD_WIDTH, LCD_HEIGHT
+from displayhatmini import ST7789
 import colorzero  # For RGB LED colors
 import matplotlib.pyplot as plt
 from io import BytesIO
@@ -55,8 +55,12 @@ def get_fear_greed_index():
 
 # Initialize the display
 display = DisplayHATMini()
-width = LCD_WIDTH
-height = LCD_HEIGHT
+width = display.WIDTH
+height = display.HEIGHT
+# display = ST7789()
+# display.set_backlight(1.0)
+# width = LCD_WIDTH
+# height = LCD_HEIGHT
 
 # Create a blank image for drawing
 image = Image.new('RGB', (width, height), color=(0, 0, 0))

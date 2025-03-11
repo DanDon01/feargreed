@@ -19,12 +19,16 @@ A Raspberry Pi project that displays the current Bitcoin Fear & Greed Index on a
 ## Setup
 
 1. Connect the ST7735 display to your Raspberry Pi
-2. 
-2. Install required packages:
+2. This automates everything:
+```bash
+./setup.sh
+```
+✅ Installs system dependencies✅ Sets up the virtual environment✅ Installs Python dependencies
+3. Install required packages:
    ```bash
    pip install requests pillow ST7735
    ```
-3. Create the following GIF file structure in your project directory:
+4. Create the following GIF file structure in your project directory:
 
 ```
 feargreed/
