@@ -56,7 +56,7 @@ def get_fear_greed_index():
 # Initialize the display
 width, height = 320, 240
 buffer = Image.new("RGB", (width, height))
-display = DisplayHATMini()
+display = DisplayHATMini(buffer)
 width = display.WIDTH
 height = display.HEIGHT
 
