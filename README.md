@@ -113,6 +113,58 @@ The display will automatically update with the current Fear & Greed Index and sh
 
 Fear & Greed Index data is fetched from Alternative.me API: https://alternative.me/crypto/fear-and-greed-index/
 
+## API Setup & Usage
+
+### Fear & Greed Index API
+This project uses the Alternative.me Crypto Fear & Greed Index API:
+- Base URL: `https://api.alternative.me/fng/`
+- No API key required
+- Free to use
+- Rate limits: 
+  - 1 request per second
+  - 30 requests per minute
+  - Unlimited daily requests
+
+### Example API Response
+```json
+{
+    "name": "Fear and Greed Index",
+    "data": [
+        {
+            "value": "25",
+            "value_classification": "extreme fear",
+            "timestamp": "1648790400",
+            "time_until_update": "3600"
+        }
+    ],
+    "metadata": {
+        "error": null
+    }
+}
+```
+
+### Error Handling
+- The display shows `error.gif` if:
+  - API is unreachable
+  - Rate limit exceeded
+  - Invalid response received
+- Retries after 60 seconds
+- Logs errors to `error.log`
+
+### Configuration
+You can adjust API settings in `config.py`:
+```python
+API_URL = "https://api.alternative.me/fng/"
+UPDATE_INTERVAL = 300  # Update every 5 minutes
+MAX_RETRIES = 3       # Number of retry attempts
+```
+
+### Local Development
+For testing without API calls, use the `--mock` flag:
+```bash
+python feargreeddisplay.py --mock
+```
+
 # Contributing to Fear & Greed Index Display
 
 ## Getting Started
@@ -126,10 +178,46 @@ Fear & Greed Index data is fetched from Alternative.me API: https://alternative.
 [To come: development environment setup instructions]
 
 ## Testing
-Run tests with: `pytest`
+
+### Setting Up Tests
+
+1. Install test requirements:
+   ```bash
+   pip install pytest pytest-cov
+   ```
 
 ### Running Tests
-Run all tests with:
+
+You can run tests in several ways:
+
+#### 1. Using Visual Studio Code (Recommended for Development)
+1. Open the project in VS Code
+2. Install the Python extension if not already installed
+3. Click the beaker icon in the left sidebar or press `Ctrl+Shift+P` and type "Python: Configure Tests"
+4. Select "pytest" as your test framework
+5. Click the play button next to any test to run it
+6. Use the Test Explorer to see all tests organized by file
+
+#### 2. Running on Raspberry Pi Directly
+If you're working directly on the Pi:
+```bash
+# Open terminal on Pi
+cd ~/feargreed
+pytest -v
+```
+
+#### 3. Running via SSH
+If you're connecting to Pi remotely:
+```bash
+# From your development machine
+ssh pi@raspberrypi
+cd ~/feargreed
+pytest -v
+```
+
+### Available Test Commands
+
+Run all tests with verbose output:
 ```bash
 pytest -v
 ```
@@ -139,10 +227,36 @@ Run a specific test file:
 pytest -v tests/test_general.py
 ```
 
-Run a specific test:
+Run the display capability demo test:
 ```bash
 pytest -v tests/test_general.py -k test_display_capabilities
 ```
+
+View test coverage report:
+```bash
+pytest --cov=. --cov-report=term-missing
+```
+
+### What the Tests Check
+
+1. **Basic Tests** (`test_general.py`)
+   - Fear & Greed index range validation
+   - Display initialization checks
+   - Folder structure verification
+   - Display capabilities demo (shows rainbow animation)
+
+2. **Display Tests**
+   - Verifies 160x128 resolution
+   - Tests color rendering
+   - Checks animation performance
+   - Validates button inputs
+
+### Automated Testing
+This project uses GitHub Actions to automatically run tests when you push code.
+You can view test results:
+1. Go to your repository on GitHub
+2. Click the "Actions" tab
+3. Look for the latest workflow run
 
 ### Test Coverage
 View test coverage report:
@@ -206,13 +320,23 @@ Follow PEP 8 guidelines
 - Check power connection
 - Verify display orientation
 - Run sudo raspi-config and enable SPI
+- Run test_display_capabilities
 
 2.  "GIFs don't animate"
 
 - Verify GIF dimensions (160x128)
 - Check frames are numbered correctly
 - Make sure GIFs are in correct folders
+- Run test_general
 
+3. API Error Handling
+- The display shows `error.gif` if:
+- API is unreachable
+- Rate limit exceeded
+- Invalid response received
+- Retries after 60 seconds
+- Logs errors to `error.log`
+  
 ## Need Help?
 Create an issue on GitHub
 Check https://thepihut.com/products/display-hat-mini
