@@ -504,7 +504,7 @@ def check_wifi():
 
 def main():
     """Main function with improved initialization and boot sequence"""
-    global current_mode
+    global current_mode, current_mode_index  # Explicitly declare globals
     try:
         display.set_backlight(0.0)
         black_screen = Image.new('RGB', (width, height), (0, 0, 0))
@@ -533,6 +533,8 @@ def main():
                 current_frames = display_money_flow(display)
             elif current_mode == DisplayMode.HISTORICAL_GRAPH:
                 current_frames = display_historical_graph(display)
+            else:
+                current_frames = [create_error_image("Unknown Mode")]
 
             start_time = time.time()
             frame_index = 0
@@ -543,8 +545,8 @@ def main():
                 check_buttons()
                 time.sleep(0.1)
 
-            next_mode_index = (current_mode_index + 1) % len(modes)
             if current_mode in modes:  # Only transition if not in config/time_setting
+                next_mode_index = (current_mode_index + 1) % len(modes)
                 if modes[next_mode_index] == DisplayMode.FEAR_GREED:
                     index_data, value = get_fear_greed_index()
                     next_frames = load_gif_frames(get_mood_gif(value))
@@ -554,6 +556,8 @@ def main():
                     next_frames = display_money_flow(display)
                 elif modes[next_mode_index] == DisplayMode.HISTORICAL_GRAPH:
                     next_frames = display_historical_graph(display)
+                else:
+                    next_frames = [create_error_image("Unknown Mode")]
                 transition_func = np.random.choice(transition_functions)
                 for transition_frame in transition_func(current_frames[0], next_frames[0]):
                     display.st7789.display(transition_frame)
