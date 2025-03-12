@@ -1,3 +1,4 @@
+import atexit
 import time
 import requests
 from PIL import Image, ImageDraw, ImageFont
@@ -63,8 +64,13 @@ display = DisplayHATMini(None)  # Use None if buffer isn't needed
 width = display.WIDTH
 height = display.HEIGHT
 
-# display = ST7789()
-# display.set_backlight(1.0)
+# Register cleanup function
+def cleanup():
+    display.set_led(0, 0, 0)  # Turn off LED
+    display.reset()  # Release resources
+    print("Cleaned up GPIO resources")
+
+atexit.register(cleanup)
 
 # Create a blank image for drawing
 image = Image.new('RGB', (width, height), color=(0, 0, 0))
@@ -643,10 +649,8 @@ def handle_time_setting(pin):
 
 def main():
     """Main function with improved initialization and boot sequence"""
-    display = None
     try:
         # Initialize display
-        display = DisplayHATMini(None)
         display.set_backlight(0.0)  # Start with backlight off
         
         # Get display dimensions
@@ -748,14 +752,11 @@ def main():
                     display.set_led(255, 0, 0)  # Red LED for errors
                     time.sleep(5)
         finally:
-            display.set_led(0, 0, 0)  # Turn off LED
-            display.reset()  # Release resources
-            print("Cleaned up GPIO resources")
+            cleanup()
         
     except Exception as e:
         print(f"Initialization Error: {e}")
-        if display:
-            display.set_led(255, 0, 0)  # Red LED for errors
+        display.set_led(255, 0, 0)  # Red LED for errors
         time.sleep(5)
         raise
 
