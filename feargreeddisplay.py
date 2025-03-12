@@ -63,12 +63,8 @@ display = DisplayHATMini(None)  # Use None if buffer isn't needed
 width = display.WIDTH
 height = display.HEIGHT
 
-
-
 # display = ST7789()
 # display.set_backlight(1.0)
-# width = LCD_WIDTH
-# height = LCD_HEIGHT
 
 # Create a blank image for drawing
 image = Image.new('RGB', (width, height), color=(0, 0, 0))
@@ -95,6 +91,8 @@ class Config:
         self.enabled_modes = [DisplayMode.FEAR_GREED, DisplayMode.PRICE_TICKER, 
                             DisplayMode.MONEY_FLOW]
         self.donation_address = "YOUR_BTC_ADDRESS"
+        self.manual_time = False  # Add this flag
+        self.time_offset = 0      # Add time offset in seconds
 
     def save(self):
         with open('config.json', 'w') as f:
@@ -347,6 +345,53 @@ def check_api_connection():
     except:
         return False, None
 
+def check_time_sync():
+    """Check if system time is synchronized"""
+    try:
+        # Check if timesyncd is running and synchronized
+        result = subprocess.run(['timedatectl', 'status'], 
+                              capture_output=True, text=True)
+        return "System clock synchronized: yes" in result.stdout
+    except:
+        return False
+
+def sync_time():
+    """Force NTP time sync"""
+    try:
+        subprocess.run(['sudo', 'timedatectl', 'set-ntp', 'true'])
+        # Wait for sync (max 10 seconds)
+        for _ in range(10):
+            if check_time_sync():
+                return True
+            time.sleep(1)
+        return False
+    except:
+        return False
+
+def check_ntp_sync():
+    """Check if system time is synchronized via NTP"""
+    try:
+        # Check timesyncd status
+        result = subprocess.run(['timedatectl', 'status'], 
+                              capture_output=True, text=True)
+        return "System clock synchronized: yes" in result.stdout
+    except:
+        return False
+
+def force_ntp_sync():
+    """Force NTP synchronization"""
+    try:
+        # Enable NTP sync
+        subprocess.run(['sudo', 'timedatectl', 'set-ntp', 'true'])
+        # Wait for sync (max 5 seconds)
+        for _ in range(5):
+            if check_ntp_sync():
+                return True
+            time.sleep(1)
+        return False
+    except:
+        return False
+
 def display_boot_sequence(display):
     """Display an animated boot sequence with real checks"""
     width = display.WIDTH
@@ -368,7 +413,7 @@ def display_boot_sequence(display):
         frame = background.copy()
         draw = ImageDraw.Draw(frame)
         
-        draw.text((width//2-50, height//2), "DISPLAY TEST", font=font, 
+        draw.text((width//2-50, height//2), "WELCOME", font=font, 
                  fill=(int(255*i/20), int(255*i/20), int(255*i/20)))
         
         frame = frame.rotate(180)
@@ -398,18 +443,37 @@ def display_boot_sequence(display):
     display.display(frame)
     time.sleep(1)
 
+    # Time sync check
+    draw.text((10, 50), "Checking Time Sync...", font=small_font, fill=(255, 255, 255))
+    frame = frame.rotate(180)
+    display.display(frame)
+
+    time_ok = check_ntp_sync()
+    if not time_ok:
+        draw.text((10, 50), "Syncing Time...", font=small_font, fill=(255, 165, 0))
+        frame = frame.rotate(180)
+        display.display(frame)
+        time_ok = force_ntp_sync()
+
+    current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    if time_ok:
+        draw.text((10, 50), f"Time: {current_time}", font=small_font, fill=(0, 255, 0))
+    else:
+        draw.text((10, 50), "Time Sync Failed", font=small_font, fill=(255, 0, 0))
+        draw.text((10, 70), f"Using: {current_time}", font=small_font, fill=(255, 165, 0))
+
     # API check
-    draw.text((10, 50), "Checking API...", font=small_font, fill=(255, 255, 255))
+    draw.text((10, 70), "Checking API...", font=small_font, fill=(255, 255, 255))
     frame = frame.rotate(180)
     display.display(frame)
     
     api_ok, value = check_api_connection()
     
     if api_ok:
-        draw.text((10, 70), f"API: Connected", font=small_font, fill=(0, 255, 0))
-        draw.text((10, 90), f"Current Index: {value}", font=small_font, fill=(0, 255, 0))
+        draw.text((10, 90), f"API: Connected", font=small_font, fill=(0, 255, 0))
+        draw.text((10, 110), f"Current Index: {value}", font=small_font, fill=(0, 255, 0))
     else:
-        draw.text((10, 70), "API: Error", font=small_font, fill=(255, 0, 0))
+        draw.text((10, 90), "API: Error", font=small_font, fill=(255, 0, 0))
     
     frame = frame.rotate(180)
     display.display(frame)
@@ -445,6 +509,137 @@ def display_boot_sequence(display):
         frame = frame.rotate(180)
         display.display(frame)
         time.sleep(0.02)
+
+def display_config_menu(disp):
+    """Display configuration menu"""
+    image = Image.new('RGB', (width, height), color=(0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    
+    config = Config.load()
+    options = [
+        f"Display Time: {config.display_time}s",
+        f"Brightness: {config.brightness}%",
+        f"Enabled Modes: {len(config.enabled_modes)}",
+        "Set System Time",  # Add this option
+        "Save & Exit"
+    ]
+    
+    for i, option in enumerate(options):
+        color = (0, 255, 0) if i == current_config_option else (255, 255, 255)
+        draw.text((10, 10 + i*20), option, font=font, fill=color)
+    
+    return [image.rotate(180)]
+
+def handle_config_buttons(pin):
+    """Handle button presses in config mode"""
+    global current_config_option, config, current_mode
+    
+    if pin == display.BUTTON_A:  # Up
+        current_config_option = (current_config_option - 1) % 5
+    elif pin == display.BUTTON_B:  # Down
+        current_config_option = (current_config_option + 1) % 5
+    elif pin == display.BUTTON_X:  # Modify
+        if current_config_option == 0:
+            config.display_time = (config.display_time % 30) + 5
+        elif current_config_option == 1:
+            config.brightness = (config.brightness + 10) % 110
+            display.set_backlight(config.brightness / 100)
+        elif current_config_option == 2:
+            # Toggle modes
+            pass
+        elif current_config_option == 3:  # Set System Time
+            global time_setting_option
+            time_setting_option = 0
+            current_mode = "time_setting"
+        elif current_config_option == 4:  # Save & Exit
+            config.save()
+            current_mode = DisplayMode.FEAR_GREED
+    elif pin == display.BUTTON_Y:  # Exit without saving
+        current_mode = DisplayMode.FEAR_GREED
+
+def set_system_time(timestamp):
+    """Set system time manually"""
+    try:
+        # Format datetime for system
+        time_str = timestamp.strftime('%Y-%m-%d %H:%M:%S')
+        subprocess.run(['sudo', 'date', '-s', time_str])
+        return True
+    except:
+        return False
+
+def display_time_setting(disp):
+    """Display time setting interface"""
+    image = Image.new('RGB', (width, height), color=(0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    
+    current_time = datetime.now()
+    if config.time_offset:
+        current_time += timedelta(seconds=config.time_offset)
+    
+    options = [
+        "Year:  " + str(current_time.year),
+        "Month: " + str(current_time.month).zfill(2),
+        "Day:   " + str(current_time.day).zfill(2),
+        "Hour:  " + str(current_time.hour).zfill(2),
+        "Min:   " + str(current_time.minute).zfill(2),
+        "Set Time",
+        "Back"
+    ]
+    
+    for i, option in enumerate(options):
+        color = (0, 255, 0) if i == time_setting_option else (255, 255, 255)
+        draw.text((10, 10 + i*20), option, font=font, fill=color)
+    
+    # Show preview of new time
+    draw.text((10, height-30), 
+              f"New: {current_time.strftime('%Y-%m-%d %H:%M')}",
+              font=font, fill=(255, 165, 0))
+    
+    return [image.rotate(180)]
+
+def handle_time_setting(pin):
+    """Handle button presses in time setting mode"""
+    global time_setting_option, config
+    
+    if pin == display.BUTTON_A:  # Up
+        time_setting_option = (time_setting_option - 1) % 7
+    elif pin == display.BUTTON_B:  # Down
+        time_setting_option = (time_setting_option + 1) % 7
+    elif pin == display.BUTTON_X:  # Modify
+        current_time = datetime.now() + timedelta(seconds=config.time_offset)
+        
+        if time_setting_option == 0:   # Year
+            config.time_offset += timedelta(days=365).total_seconds()
+        elif time_setting_option == 1: # Month
+            config.time_offset += timedelta(days=30).total_seconds()
+        elif time_setting_option == 2: # Day
+            config.time_offset += timedelta(days=1).total_seconds()
+        elif time_setting_option == 3: # Hour
+            config.time_offset += timedelta(hours=1).total_seconds()
+        elif time_setting_option == 4: # Minute
+            config.time_offset += timedelta(minutes=1).total_seconds()
+        elif time_setting_option == 5: # Set Time
+            new_time = datetime.now() + timedelta(seconds=config.time_offset)
+            if set_system_time(new_time):
+                config.manual_time = True
+                config.time_offset = 0
+                return "config"  # Return to main config
+        elif time_setting_option == 6: # Back
+            config.time_offset = 0
+            return "config"
+    elif pin == display.BUTTON_Y:  # Decrease value
+        current_time = datetime.now() + timedelta(seconds=config.time_offset)
+        
+        if time_setting_option == 0:   # Year
+            config.time_offset -= timedelta(days=365).total_seconds()
+        elif time_setting_option == 1: # Month
+            config.time_offset -= timedelta(days=30).total_seconds()
+        elif time_setting_option == 2: # Day
+            config.time_offset -= timedelta(days=1).total_seconds()
+        elif time_setting_option == 3: # Hour
+            config.time_offset -= timedelta(hours=1).total_seconds()
+        elif time_setting_option == 4: # Minute
+            config.time_offset -= timedelta(minutes=1).total_seconds()
 
 def main():
     """Main function with improved initialization and boot sequence"""

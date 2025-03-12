@@ -463,6 +463,56 @@ This ensures swap is enabled on startup.
 xargs sudo apt install -y < requirements-system.txt
 ```
 
+## Time Synchronization
+
+The Raspberry Pi Zero 2 W doesn't have a real-time clock. Time is synchronized via NTP when connected to the internet.
+
+### Automatic Time Sync
+- Time syncs automatically when WiFi is connected
+- Uses Network Time Protocol (NTP)
+- Updates every few minutes
+- No configuration needed
+
+### Manual Time Setting
+Access the manual time setting through the configuration menu:
+1. Press Button Y to enter config mode
+2. Select "Set System Time"
+3. Use buttons to adjust:
+   - Button A: Move up
+   - Button B: Move down
+   - Button X: Increase value
+   - Button Y: Decrease value
+4. Available settings:
+   - Year
+   - Month
+   - Day
+   - Hour
+   - Minute
+5. Select "Set Time" to apply changes
+6. Select "Back" to cancel
+
+### Optional: Add RTC Module
+For offline time keeping, you can add an RTC module:
+
+1. Install I2C RTC module (e.g., DS3231)
+2. Enable I2C:
+   ```bash
+   sudo raspi-config
+   # Interface Options -> I2C -> Enable
+   ```
+3. Install required packages:
+   ```bash
+   sudo apt-get update
+   sudo apt-get install i2c-tools python3-smbus
+   ```
+4. Add to /boot/config.txt:
+   ```
+   dtoverlay=i2c-rtc,ds3231
+   ```
+5. Reboot:
+   ```bash
+   sudo reboot
+   ```
 
 ## Need Help?
 Create an issue on GitHub
