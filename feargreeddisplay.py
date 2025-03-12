@@ -9,7 +9,8 @@ import qrcode
 from datetime import datetime, timedelta
 
 # Ensure GPIO mode is set BEFORE importing displayhatmini
-GPIO.setmode(GPIO.BCM)  # Use BCM pin numbering
+if not GPIO.getmode():  # Only set if it's not already set
+    GPIO.setmode(GPIO.BCM)  # Use BCM pin numbering
 
 from displayhatmini import DisplayHATMini
 from displayhatmini import ST7789
@@ -67,7 +68,7 @@ def get_fear_greed_index():
 # Initialize the display
 width, height = 320, 240
 buffer = Image.new("RGB", (width, height))
-display = DisplayHATMini(None)  # Use None if buffer isn't needed
+display = DisplayHATMini(None)  
 
 width = display.WIDTH
 height = display.HEIGHT
@@ -518,8 +519,8 @@ def display_boot_sequence(display):
             draw.text((10, 70), "API: Error", font=small_font, fill=(255, 0, 0))
         
         # Loading text
-        draw.text((width//2-50, height//2-30), "FEAR & GREED", font=font, fill=(255, 165, 0))
-        draw.text((width//2-30, height-40), f"Starting... {i}%", font=small_font, fill=(255, 255, 255))
+        draw.text((width//2-60, height//2-35), "BITCOIN FEAR & GREED", font=font, fill=(255, 165, 0))
+        draw.text((width//2-50, height-30), f"Starting... {i}%", font=small_font, fill=(255, 255, 255))
         
         frame = frame.rotate(-180)
         display.st7789.display(frame)
