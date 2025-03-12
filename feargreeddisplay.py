@@ -178,10 +178,12 @@ def get_market_direction():
         return "up" if current > yesterday_price else "down"
     except:
         return "neutral"
-
+    
 def handle_button(pin):
     """Handle button presses"""
-    global current_mode_index
+    global current_mode_index, current_mode
+
+    # Access buttons from the display instance
     if pin == display.BUTTON_A:
         current_mode_index = (current_mode_index + 1) % len(modes)
     elif pin == display.BUTTON_B:
@@ -191,8 +193,8 @@ def handle_button(pin):
         display.set_led(0.0, 0.0, 0.0)
     elif pin == display.BUTTON_Y:
         # Enter config mode
-        global current_mode
         current_mode = DisplayMode.CONFIG
+
 
 def display_volume_chart(disp):
     try:
@@ -669,10 +671,7 @@ def main():
         display_boot_sequence(display)
         
         # Setup button handlers
-        display.on_button_pressed(display.BUTTON_A, lambda pin: handle_button(pin))
-        display.on_button_pressed(display.BUTTON_B, lambda pin: handle_button(pin))
-        display.on_button_pressed(display.BUTTON_X, lambda pin: handle_button(pin))
-        display.on_button_pressed(display.BUTTON_Y, lambda pin: handle_button(pin))
+        display.on_button_pressed(handle_button)  # Register once, it handles all buttons
         
         # Flash LED to show ready
         for _ in range(3):
