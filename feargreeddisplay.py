@@ -658,7 +658,7 @@ def main():
         
         # Clear display
         black_screen = Image.new('RGB', (width, height), color=(0, 0, 0))
-        display.display(black_screen.rotate(180))
+        display.st7789.display(black_screen.rotate(180))
         
         # Fade in backlight
         for i in range(101):
@@ -676,7 +676,7 @@ def main():
         
         # Flash LED to show ready
         for _ in range(3):
-            display.set_led(0, 255, 0)  # Green
+            display.set_led(0.0, 1.0, 0.0)  # Green LED
             time.sleep(0.1)
             display.set_led(0, 0, 0)    # Off
             time.sleep(0.1)
@@ -748,14 +748,14 @@ def main():
                     
                 except Exception as e:
                     print(f"Error: {e}")
-                    display.set_led(255, 0, 0)  # Red LED for errors
+                    display.set_led(1.0, 0.0, 0.0)  # Correct Red LED
                     time.sleep(5)
         finally:
             cleanup()
         
     except Exception as e:
         print(f"Initialization Error: {e}")
-        display.set_led(255, 0, 0)  # Red LED for errors
+        display.set_led(1.0, 0.0, 0.0)  # Correct Red LED
         time.sleep(5)
         raise
 
