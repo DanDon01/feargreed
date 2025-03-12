@@ -66,8 +66,7 @@ height = display.HEIGHT
 
 # Register cleanup function
 def cleanup():
-    display.set_led(0, 0, 0)  # Turn off LED
-    display.reset()  # Release resources
+    display.set_led(0.0, 0.0, 0.0)  # Turn off LED
     print("Cleaned up GPIO resources")
 
 atexit.register(cleanup)
@@ -107,7 +106,7 @@ class Config:
     @classmethod
     def load(cls):
         try:
-            with open('config.json', 'r') as f:
+            with open('config.json', 'r') as f):
                 data = json.load(f)
                 config = cls()
                 config.__dict__.update(data)
@@ -189,7 +188,7 @@ def handle_button(pin):
         current_mode_index = (current_mode_index - 1) % len(modes)
     elif pin == display.BUTTON_X:
         # Toggle LED on/off
-        display.set_led(0, 0, 0)
+        display.set_led(0.0, 0.0, 0.0)
     elif pin == display.BUTTON_Y:
         # Enter config mode
         global current_mode
@@ -243,20 +242,20 @@ def get_price_change():
 def set_mood_led(value):
     """Set RGB LED color based on fear/greed value"""
     if value is None:
-        display.set_led(255, 0, 0)  # Red for error
+        display.set_led(1.0, 0.0, 0.0)  # Red for error
         return
     
     value = int(value)
     if value <= 25:  # Extreme fear - deep red
-        display.set_led(255, 0, 0)
+        display.set_led(1.0, 0.0, 0.0)
     elif value <= 45:  # Fear - orange
-        display.set_led(255, 165, 0)
+        display.set_led(1.0, 0.65, 0.0)
     elif value <= 55:  # Neutral - yellow
-        display.set_led(255, 255, 0)
+        display.set_led(1.0, 1.0, 0.0)
     elif value <= 75:  # Greed - light green
-        display.set_led(0, 255, 0)
+        display.set_led(0.0, 1.0, 0.0)
     else:  # Extreme greed - deep green
-        display.set_led(0, 128, 0)
+        display.set_led(0.0, 0.5, 0.0)
 
 def get_historical_fear_greed():
     """Fetch historical Fear & Greed data"""
@@ -440,10 +439,10 @@ def display_boot_sequence(display):
     if wifi_ok:
         draw.text((10, 10), f"WiFi: {ssid}", font=small_font, fill=(0, 255, 0))
         draw.text((10, 30), f"Signal: {signal}dBm", font=small_font, fill=(0, 255, 0))
-        display.set_led(0, 255, 0)  # Green LED
+        display.set_led(0.0, 1.0, 0.0)  # Green LED
     else:
         draw.text((10, 10), "WiFi: Not Connected", font=small_font, fill=(255, 0, 0))
-        display.set_led(255, 0, 0)  # Red LED
+        display.set_led(1.0, 0.0, 0.0)  # Red LED
     
     frame = frame.rotate(180)
     display.display(frame)
