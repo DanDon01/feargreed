@@ -670,7 +670,10 @@ def main():
         # Show boot sequence
         display_boot_sequence(display)
         
-        # Setup button handlers
+        # Ensure GPIO is cleaned before registering buttons
+        GPIO.cleanup()
+        
+        # Setup button handlers        
         display.on_button_pressed(handle_button)  # Register once, it handles all buttons
         
         # Flash LED to show ready
