@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 import wifi
 import subprocess
+import RPi.GPIO as GPIO  # Import GPIO library
 
 def load_gif_frames(gif_path):
     """Load a GIF and convert frames to format suitable for display"""
@@ -409,8 +410,8 @@ def display_boot_sequence(display):
     draw = ImageDraw.Draw(background)
     
     try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
-        small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 12)
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
+        small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 14)
     except:
         font = ImageFont.load_default()
         small_font = ImageFont.load_default()
@@ -421,9 +422,9 @@ def display_boot_sequence(display):
         draw = ImageDraw.Draw(frame)
         
         draw.text((width//2-50, height//2), "WELCOME", font=font, 
-                 fill=(int(255*i/20), int(255*i/20), int(255*i/20)))
+                 fill_color = (0, int(255 * i / 20), 0))  # Fade from black to green
         
-        frame = frame.rotate(180)
+        frame = frame.rotate(-180)
         display.st7789.display(frame)
         time.sleep(0.05)
 
@@ -431,7 +432,7 @@ def display_boot_sequence(display):
     frame = background.copy()
     draw = ImageDraw.Draw(frame)
     draw.text((10, 10), "Checking WiFi...", font=small_font, fill=(255, 255, 255))
-    frame = frame.rotate(180)
+    frame = frame.rotate(-180)
     display.st7789.display(frame)
     
     wifi_ok, ssid, signal = check_wifi()
@@ -446,19 +447,19 @@ def display_boot_sequence(display):
         draw.text((10, 10), "WiFi: Not Connected", font=small_font, fill=(255, 0, 0))
         display.set_led(1.0, 0.0, 0.0)  # Red LED
     
-    frame = frame.rotate(180)
+    frame = frame.rotate(-180)
     display.st7789.display(frame)
     time.sleep(1)
 
     # Time sync check
     draw.text((10, 50), "Checking Time Sync...", font=small_font, fill=(255, 255, 255))
-    frame = frame.rotate(180)
+    frame = frame.rotate(-180)
     display.st7789.display(frame)
 
     time_ok = check_ntp_sync()
     if not time_ok:
         draw.text((10, 50), "Syncing Time...", font=small_font, fill=(255, 165, 0))
-        frame = frame.rotate(180)
+        frame = frame.rotate(-180)
         display.st7789.display(frame)
         time_ok = force_ntp_sync()
 
@@ -477,12 +478,12 @@ def display_boot_sequence(display):
     api_ok, value = check_api_connection()
     
     if api_ok:
-        draw.text((10, 90), f"API: Connected", font=small_font, fill=(0, 255, 0))
-        draw.text((10, 110), f"Current Index: {value}", font=small_font, fill=(0, 255, 0))
+        draw.text((10, 90), f"API: Connected", font=small_font, fill=(180, 200, 160))
+        draw.text((10, 110), f"Current Index: {value}", font=small_font, fill=(180, 200, 160))
     else:
         draw.text((10, 90), "API: Error", font=small_font, fill=(255, 0, 0))
     
-    frame = frame.rotate(180)
+    frame = frame.rotate(-180)
     display.st7789.display(frame)
     time.sleep(1)
 
@@ -510,12 +511,12 @@ def display_boot_sequence(display):
             draw.text((10, 70), "API: Error", font=small_font, fill=(255, 0, 0))
         
         # Loading text
-        draw.text((width//2-50, height//2-40), "FEAR & GREED", font=font, fill=(255, 165, 0))
-        draw.text((width//2-30, height-50), f"Starting... {i}%", font=small_font, fill=(255, 255, 255))
+        draw.text((width//2-50, height//2-30), "FEAR & GREED", font=font, fill=(255, 165, 0))
+        draw.text((width//2-30, height-40), f"Starting... {i}%", font=small_font, fill=(255, 255, 255))
         
-        frame = frame.rotate(180)
+        frame = frame.rotate(-180)
         display.st7789.display(frame)
-        time.sleep(0.02)
+        time.sleep(0.01)
 
 def display_config_menu(disp):
     """Display configuration menu"""
@@ -535,7 +536,7 @@ def display_config_menu(disp):
         color = (0, 255, 0) if i == current_config_option else (255, 255, 255)
         draw.text((10, 10 + i*20), option, font=font, fill=color)
     
-    return [image.rotate(180)]
+    return [image.rotate(-180)]
 
 def handle_config_buttons(pin):
     """Handle button presses in config mode"""
@@ -602,7 +603,7 @@ def display_time_setting(disp):
               f"New: {current_time.strftime('%Y-%m-%d %H:%M')}",
               font=font, fill=(255, 165, 0))
     
-    return [image.rotate(180)]
+    return [image.rotate(-180)]
 
 def handle_time_setting(pin):
     """Handle button presses in time setting mode"""
@@ -660,7 +661,7 @@ def main():
         
         # Clear display
         black_screen = Image.new('RGB', (width, height), color=(0, 0, 0))
-        display.st7789.display(black_screen.rotate(180))
+        display.st7789.display(black_screen.rotate(-180))
         
         # Fade in backlight
         for i in range(101):
