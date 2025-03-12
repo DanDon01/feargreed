@@ -422,7 +422,7 @@ def display_boot_sequence(display):
                  fill=(int(255*i/20), int(255*i/20), int(255*i/20)))
         
         frame = frame.rotate(180)
-        display.display(frame)
+        display.st7789.display(frame)
         time.sleep(0.05)
 
     # WiFi check
@@ -430,7 +430,7 @@ def display_boot_sequence(display):
     draw = ImageDraw.Draw(frame)
     draw.text((10, 10), "Checking WiFi...", font=small_font, fill=(255, 255, 255))
     frame = frame.rotate(180)
-    display.display(frame)
+    display.st7789.display(frame)
     
     wifi_ok, ssid, signal = check_wifi()
     
@@ -445,19 +445,19 @@ def display_boot_sequence(display):
         display.set_led(1.0, 0.0, 0.0)  # Red LED
     
     frame = frame.rotate(180)
-    display.display(frame)
+    display.st7789.display(frame)
     time.sleep(1)
 
     # Time sync check
     draw.text((10, 50), "Checking Time Sync...", font=small_font, fill=(255, 255, 255))
     frame = frame.rotate(180)
-    display.display(frame)
+    display.st7789.display(frame)
 
     time_ok = check_ntp_sync()
     if not time_ok:
         draw.text((10, 50), "Syncing Time...", font=small_font, fill=(255, 165, 0))
         frame = frame.rotate(180)
-        display.display(frame)
+        display.st7789.display(frame)
         time_ok = force_ntp_sync()
 
     current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -470,7 +470,7 @@ def display_boot_sequence(display):
     # API check
     draw.text((10, 70), "Checking API...", font=small_font, fill=(255, 255, 255))
     frame = frame.rotate(180)
-    display.display(frame)
+    display.st7789.display(frame)
     
     api_ok, value = check_api_connection()
     
@@ -481,7 +481,7 @@ def display_boot_sequence(display):
         draw.text((10, 90), "API: Error", font=small_font, fill=(255, 0, 0))
     
     frame = frame.rotate(180)
-    display.display(frame)
+    display.st7789.display(frame)
     time.sleep(1)
 
     # Final boot animation
@@ -512,7 +512,7 @@ def display_boot_sequence(display):
         draw.text((width//2-30, height-50), f"Starting... {i}%", font=small_font, fill=(255, 255, 255))
         
         frame = frame.rotate(180)
-        display.display(frame)
+        display.st7789.display(frame)
         time.sleep(0.02)
 
 def display_config_menu(disp):
@@ -720,7 +720,7 @@ def main():
                     frame_index = 0
                     while time.time() - start_time < 10:  # Show each mode for 10 seconds
                         frame = current_frames[frame_index % len(current_frames)]
-                        display.display(frame)
+                        display.st7789.display(frame)
                         time.sleep(0.1)
                         frame_index += 1
                     
