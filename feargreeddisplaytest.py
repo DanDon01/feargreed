@@ -5,16 +5,10 @@ import time
 import requests
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
-import qrcode
-from datetime import datetime, timedelta
 from displayhatmini import DisplayHATMini
-import subprocess
-import json
-import matplotlib.pyplot as plt
-from io import BytesIO
-import numpy as np
 
-# Initialize GPIO only once at the start
+# Clean up any existing GPIO configuration
+GPIO.cleanup()
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 
@@ -25,7 +19,11 @@ width, height = 320, 240
 buffer = Image.new("RGB", (width, height))
 
 # Initialize DisplayHATMini with the buffer
-display = DisplayHATMini(buffer, backlight_pwm=True)
+try:
+    display = DisplayHATMini(buffer, backlight_pwm=True)
+except Exception as e:
+    print(f"Failed to initialize DisplayHATMini: {e}")
+    exit(1)
 
 def cleanup():
     """Cleanup function to ensure GPIO and display resources are released."""
@@ -149,22 +147,21 @@ class Config:
         self.display_time = 10  # seconds per mode
         self.brightness = 1.0   # 0.0-1.0 for PWM backlight
 
-# Button handling
+# Button handling (polling instead of interrupts)
 current_mode_index = 0
 modes = [DisplayMode.FEAR_GREED, DisplayMode.PRICE_TICKER]
 
-def handle_button(pin):
-    """Handle button presses"""
-    global current_mode_index
-    if display.read_button(pin):  # Only handle on button press (not release)
-        if pin == display.BUTTON_A:
-            current_mode_index = (current_mode_index + 1) % len(modes)
-        elif pin == pin == display.BUTTON_B:
-            current_mode_index = (current_mode_index - 1) % len(modes)
-        elif pin == display.BUTTON_X:
-            display.set_led(0.0, 0.0, 0.0)  # Turn off LED
-        elif pin == display.BUTTON_Y:
-            display.set_led(1.0, 1.0, 1.0)  # White LED for testing
+def check_buttons():
+    """Poll buttons and return mode change or action"""
+    if display.read_button(display.BUTTON_A):
+        return (current_mode_index + 1) % len(modes)
+    elif display.read_button(display.BUTTON_B):
+        return (current_mode_index - 1) % len(modes)
+    elif display.read_button(display.BUTTON_X):
+        display.set_led(0.0, 0.0, 0.0)  # Turn off LED
+    elif display.read_button(display.BUTTON_Y):
+        display.set_led(1.0, 1.0, 1.0)  # White LED for testing
+    return current_mode_index
 
 def display_boot_sequence():
     """Simple boot sequence"""
@@ -177,6 +174,7 @@ def display_boot_sequence():
 
 def main():
     """Main loop"""
+    global current_mode_index
     try:
         # Initial setup
         display.set_backlight(0.0)
@@ -189,9 +187,6 @@ def main():
 
         # Show boot sequence
         display_boot_sequence()
-
-        # Register button handlers
-        display.on_button_pressed(handle_button)
 
         # Main loop
         config = Config()
@@ -212,6 +207,11 @@ def main():
                 frame = current_frames[frame_index % len(current_frames)]
                 display.st7789.display(frame)
                 frame_index += 1
+                # Check buttons during display
+                new_index = check_buttons()
+                if new_index != current_mode_index:
+                    current_mode_index = new_index
+                    break
                 time.sleep(0.1)
 
     except Exception as e:
