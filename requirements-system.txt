@@ -2,3 +2,4 @@ libopenblas-dev
 python3-dev
 python3-pip
 python3-venv
+install -y libopenjp2-7-dev

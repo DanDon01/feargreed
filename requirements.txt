@@ -6,4 +6,6 @@ qrcode==7.4.2
 RPi.GPIO==0.7.1
 matplotlib>=3.5.0
 contourpy==1.0.1
-
+qrcode==8.0
+displayhatmini
+colorzero==2.0

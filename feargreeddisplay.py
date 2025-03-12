@@ -677,6 +677,86 @@ def main():
             display.set_led(0, 0, 0)    # Off
             time.sleep(0.1)
         
+        display = DisplayHATMini(None)  # Use None if buffer isn't needed
+        display.set_backlight(1.0)
+        
+        # Setup button handlers
+        for button in [display.BUTTON_A, display.BUTTON_B, display.BUTTON_X, display.BUTTON_Y]:
+            display.on_button_pressed(button, handle_button)
+
+        config = Config.load()
+        
+        modes = [DisplayMode.FEAR_GREED, 
+                 DisplayMode.PRICE_TICKER, 
+                 DisplayMode.MONEY_FLOW,
+                 DisplayMode.HISTORICAL_GRAPH]  # Add historical graph mode
+        current_mode_index = 0
+        transition_functions = [Transitions.slide_left, Transitions.fade, Transitions.slide_up]
+        
+        try:
+            while True:
+                try:
+                    if current_mode == DisplayMode.CONFIG:
+                        # Handle configuration menu
+                        display_config_menu(display, config)
+                        continue
+                        
+                    current_mode = modes[current_mode_index]
+                    next_mode_index = (current_mode_index + 1) % len(modes)
+                    
+                    # Get current content
+                    if current_mode == DisplayMode.FEAR_GREED:
+                        index_data = get_fear_greed_index()
+                        value = int(index_data.split()[2].split('\n')[0])
+                        set_mood_led(value)  # Update LED color
+                        current_frames = load_gif_frames(get_mood_gif(value))
+                    elif current_mode == DisplayMode.PRICE_TICKER:
+                        current_frames = [display_price_ticker(display)]
+                    elif current_mode == DisplayMode.HISTORICAL_GRAPH:
+                        current_frames = display_historical_graph(display)
+                    else:  # MONEY_FLOW
+                        current_frames = display_money_flow(display)
+                    
+                    # Display current content for a while
+                    start_time = time.time()
+                    frame_index = 0
+                    while time.time() - start_time < 10:  # Show each mode for 10 seconds
+                        frame = current_frames[frame_index % len(current_frames)]
+                        display.display(frame)
+                        time.sleep(0.1)
+                        frame_index += 1
+                    
+                    # Prepare next content
+                    if modes[next_mode_index] == DisplayMode.FEAR_GREED:
+                        index_data = get_fear_greed_index()
+                        value = int(index_data.split()[2].split('\n')[0])
+                        next_frames = load_gif_frames(get_mood_gif(value))
+                    elif modes[next_mode_index] == DisplayMode.PRICE_TICKER:
+                        next_frames = [display_price_ticker(display)]
+                    elif modes[next_mode_index] == DisplayMode.HISTORICAL_GRAPH:
+                        next_frames = display_historical_graph(display)
+                    else:  # MONEY_FLOW
+                        next_frames = display_money_flow(display)
+                    
+                    # Transition to next content
+                    transition_func = np.random.choice(transition_functions)
+                    for transition_frame in transition_func(
+                        current_frames[0], next_frames[0]
+                    ):
+                        display.display(transition_frame)
+                        time.sleep(0.05)
+                    
+                    current_mode_index = next_mode_index
+                    
+                except Exception as e:
+                    print(f"Error: {e}")
+                    display.set_led(255, 0, 0)  # Red LED for errors
+                    time.sleep(5)
+        finally:
+            display.set_led(0, 0, 0)  # Turn off LED
+            display.reset()  # Release resources
+            print("Cleaned up GPIO resources")
+        
         # ...rest of your existing main() code...
         
     except Exception as e:
