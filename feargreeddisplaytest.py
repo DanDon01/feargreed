@@ -115,7 +115,7 @@ class Config:
     @classmethod
     def load(cls):
         try:
-            with open('config.json', 'r') as f):
+            with open('config.json', 'r') as f:
                 data = json.load(f)
                 config = cls()
                 config.__dict__.update(data)
