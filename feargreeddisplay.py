@@ -643,6 +643,7 @@ def handle_time_setting(pin):
 
 def main():
     """Main function with improved initialization and boot sequence"""
+    display = None
     try:
         # Initialize display
         display = DisplayHATMini(None)
@@ -677,13 +678,7 @@ def main():
             display.set_led(0, 0, 0)    # Off
             time.sleep(0.1)
         
-        display = DisplayHATMini(None)  # Use None if buffer isn't needed
-        display.set_backlight(1.0)
-        
-        # Setup button handlers
-        for button in [display.BUTTON_A, display.BUTTON_B, display.BUTTON_X, display.BUTTON_Y]:
-            display.on_button_pressed(button, handle_button)
-
+        # Load configuration
         config = Config.load()
         
         modes = [DisplayMode.FEAR_GREED, 
@@ -757,11 +752,9 @@ def main():
             display.reset()  # Release resources
             print("Cleaned up GPIO resources")
         
-        # ...rest of your existing main() code...
-        
     except Exception as e:
         print(f"Initialization Error: {e}")
-        if 'display' in locals():
+        if display:
             display.set_led(255, 0, 0)  # Red LED for errors
         time.sleep(5)
         raise
