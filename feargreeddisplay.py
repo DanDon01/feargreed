@@ -13,8 +13,7 @@ import json
 import matplotlib.pyplot as plt
 from io import BytesIO
 
-# Clean up any existing GPIO configuration and initialize once
-GPIO.cleanup()
+# Initialize GPIO once (no cleanup here to avoid warning)
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 
@@ -47,7 +46,7 @@ def load_gif_frames(gif_path):
         with Image.open(gif_path) as gif:
             frames = []
             while True:
-                frame = gif.copy().convert("RGB")
+                frame = gif.copy().convert("RGB")  # Ensure RGB
                 if frame.size != (width, height):
                     frame = frame.resize((width, height), Image.Resampling.LANCZOS)
                 frames.append(frame)
@@ -66,15 +65,15 @@ def get_mood_gif(value):
         return "gifs/error.gif"
     value = int(value)
     if value <= 25:
-        return "gifs/extreme_fear.gif"
+        return "gifs/feargreed/extreme_fear.gif"
     elif value <= 45:
-        return "gifs/fear.gif"
+        return "gifs/feargreed/fear.gif"
     elif value <= 55:
-        return "gifs/neutral.gif"
+        return "gifs/feargreed/neutral.gif"
     elif value <= 75:
-        return "gifs/greed.gif"
+        return "gifs/feargreed/greed.gif"
     else:
-        return "gifs/extreme_greed.gif"
+        return "gifs/feargreed/extreme_greed.gif"
 
 def get_fear_greed_index():
     """Fetch the Fear & Greed Index"""
@@ -155,7 +154,7 @@ def display_qr_code(disp, address):
     qr = qrcode.QRCode(version=1, box_size=2, border=2)
     qr.add_data(address)
     qr.make(fit=True)
-    qr_image = qr.make_image(fill_color="white", back_color="black")
+    qr_image = qr.make_image(fill_color="white", back_color="black").convert("RGB")  # Ensure RGB
     qr_image = qr_image.resize((width, height))
     return [qr_image]
 
@@ -229,7 +228,7 @@ def display_historical_graph(disp):
     plt.savefig(buf, format='png', bbox_inches='tight', transparent=True)
     plt.close()
     buf.seek(0)
-    graph_image = Image.open(buf)
+    graph_image = Image.open(buf).convert("RGB")  # Convert to RGB to avoid RGBA mismatch
     graph_image = graph_image.resize((width, height))
     return [graph_image]
 
@@ -279,8 +278,8 @@ class Transitions:
 
     @staticmethod
     def fade(old_frame, new_frame, steps=20):
-        old_array = np.array(old_frame)
-        new_array = np.array(new_frame)
+        old_array = np.array(old_frame.convert("RGB"))  # Ensure RGB
+        new_array = np.array(new_frame.convert("RGB"))  # Ensure RGB
         for i in range(steps + 1):
             alpha = i / steps
             blended = Image.fromarray((old_array * (1 - alpha) + new_array * alpha).astype(np.uint8))
@@ -461,8 +460,8 @@ def display_boot_sequence(display):
     background = Image.new('RGB', (width, height), (0, 0, 0))
     draw = ImageDraw.Draw(background)
     try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
-        small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 14)
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 26)
+        small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16)
     except:
         font = small_font = ImageFont.load_default()
 
