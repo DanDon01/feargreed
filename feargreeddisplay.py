@@ -15,6 +15,8 @@ import wifi
 import subprocess
 import RPi.GPIO as GPIO  # Import GPIO library
 
+GPIO.setmode(GPIO.BCM)  # Use BCM pin numbering
+
 def load_gif_frames(gif_path):
     """Load a GIF and convert frames to format suitable for display"""
     with Image.open(gif_path) as gif:
@@ -536,7 +538,7 @@ def display_config_menu(disp):
         color = (0, 255, 0) if i == current_config_option else (255, 255, 255)
         draw.text((10, 10 + i*20), option, font=font, fill=color)
     
-    return [image.rotate(-180)]
+    return [image.rotate(-240)]
 
 def handle_config_buttons(pin):
     """Handle button presses in config mode"""
