@@ -1,3 +1,4 @@
+import RPi.GPIO as GPIO  # Import GPIO library
 import atexit
 import time
 import requests
@@ -6,6 +7,10 @@ from pathlib import Path
 import numpy as np
 import qrcode
 from datetime import datetime, timedelta
+
+# Ensure GPIO mode is set BEFORE importing displayhatmini
+GPIO.setmode(GPIO.BCM)  # Use BCM pin numbering
+
 from displayhatmini import DisplayHATMini
 from displayhatmini import ST7789
 import colorzero  # For RGB LED colors
@@ -13,7 +18,7 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 import wifi
 import subprocess
-import RPi.GPIO as GPIO  # Import GPIO library
+
 
 GPIO.setmode(GPIO.BCM)  # Use BCM pin numbering
 
