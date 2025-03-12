@@ -189,20 +189,25 @@ def get_market_direction():
         return "neutral"
     
 def handle_button(pin):
-    """Handle button presses"""
+    """Handle button presses using Display HAT Mini's event system."""
     global current_mode_index, current_mode
 
-    # Access buttons from the display instance
     if pin == display.BUTTON_A:
         current_mode_index = (current_mode_index + 1) % len(modes)
+
     elif pin == display.BUTTON_B:
         current_mode_index = (current_mode_index - 1) % len(modes)
+
     elif pin == display.BUTTON_X:
         # Toggle LED on/off
         display.set_led(0.0, 0.0, 0.0)
+
     elif pin == display.BUTTON_Y:
         # Enter config mode
         current_mode = DisplayMode.CONFIG
+
+# Register the button handler once
+display.on_button_pressed(handle_button)
 
 
 def display_volume_chart(disp):
