@@ -514,6 +514,45 @@ For offline time keeping, you can add an RTC module:
    sudo reboot
    ```
 
+## LED Controls & Configuration
+
+### LED Brightness
+The onboard RGB LED brightness can be configured:
+1. Press Button Y to enter config mode
+2. Select "LED Bright" option
+3. Use buttons to adjust:
+   - Button X: Increase brightness (0-100%)
+   - Button Y: Decrease brightness (0-100%)
+4. LED brightness settings persist after reboot
+
+### LED Color Mapping
+The RGB LED indicates market sentiment:
+- Extreme Fear (0-25): Deep Red
+- Fear (26-45): Orange
+- Neutral (46-55): Yellow
+- Greed (56-75): Light Green
+- Extreme Greed (76-100): Deep Green
+- Error State: Flashing Red
+
+### LED Settings in Config
+```python
+# In config.py
+LED_ENABLED = True     # Toggle LED on/off
+LED_BRIGHTNESS = 0.5   # Default brightness (0.0-1.0)
+```
+
+### LED Controls in Menu
+The config menu allows you to:
+- Adjust LED brightness
+- Toggle LED on/off
+- Save preferences
+- Test different brightness levels
+
+### Power Saving
+- LED can be disabled completely
+- Brightness can be set very low
+- Settings persist through reboots
+
 ## Need Help?
 Create an issue on GitHub
 Check https://thepihut.com/products/display-hat-mini
