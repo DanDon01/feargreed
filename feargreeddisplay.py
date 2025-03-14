@@ -65,26 +65,27 @@ def get_mood_gif(value):
         return "gifs/error.gif"
     value = int(value)
     if value <= 25:
-        return "gifs/feargreed/extreme_fear.gif"
+        return "gifs/fear_greed/extreme_fear.gif"
     elif value <= 45:
-        return "gifs/feargreed/fear.gif"
+        return "gifs/fear_greed/fear.gif"
     elif value <= 55:
-        return "gifs/feargreed/neutral.gif"
+        return "gifs/fear_greed/neutral.gif"
     elif value <= 75:
-        return "gifs/feargreed/greed.gif"
+        return "gifs/fear_greed/greed.gif"
     else:
-        return "gifs/feargreed/extreme_greed.gif"
+        return "gifs/fear_greed/extreme_greed.gif"
 
 def get_fear_greed_index():
     """Fetch the Fear & Greed Index"""
     try:
         url = "https://api.alternative.me/fng/"
         response = requests.get(url, timeout=5)
+        response.raise_for_status()  # Raise an HTTPError for bad responses
         data = response.json()
         value = data['data'][0]['value']
         classification = data['data'][0]['value_classification']
         return f"Fear & Greed: {value}\n{classification}", value
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         print(f"Error fetching Fear & Greed Index: {e}")
         return "Error fetching data", None
 
