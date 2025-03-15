@@ -1,4 +1,4 @@
-# Version 1.3 15/03/2025 09:42
+# Version 2.5 15/03/2025 13:16
 #!/usr/bin/env python3
 import RPi.GPIO as GPIO
 import atexit
@@ -15,10 +15,11 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 from PIL import ImageEnhance
 import math
+import random
 
 # Add at top of file after imports
 last_button_time = 0
-BUTTON_DEBOUNCE_MS = 10  # 10ms debounce window
+BUTTON_DEBOUNCE_MS = 5  # 10ms debounce window
 
 # Cache to store API results with timestamps
 API_CACHE = {
@@ -101,40 +102,46 @@ def cleanup():
 # Register cleanup function
 atexit.register(cleanup)
 
-def load_gif_frames(gif_path):
-    """Load a GIF and convert frames to format suitable for display"""
+def load_gif_frames(gif_path, max_frames=20):
+    """Load a GIF with a frame limit to reduce memory usage"""
     try:
         with Image.open(gif_path) as gif:
             frames = []
-            while True:
-                frame = gif.copy().convert("RGB")  # Ensure RGB
+            frame_count = 0
+            while frame_count < max_frames:
+                frame = gif.copy().convert("RGB")
                 if frame.size != (width, height):
                     frame = frame.resize((width, height), Image.Resampling.LANCZOS)
                 frames.append(frame)
+                frame_count += 1
                 try:
                     gif.seek(gif.tell() + 1)
                 except EOFError:
                     break
+            print(f"Loaded {frame_count} frames from {gif_path}")
             return frames
     except Exception as e:
         print(f"Error loading GIF: {e}")
         return [create_error_image("GIF Error")]
+    finally:
+        if 'gif' in locals():
+            gif.close()
 
 def get_mood_gif(value):
-    """Return appropriate GIF path based on fear/greed value"""
+    """Return appropriate optimized GIF path based on fear/greed value"""
     if value is None:
-        return "gifs/error.gif"
+        return "gifs/error.gif"  # Assuming this doesn’t need optimization
     value = int(value)
     if value <= 25:
-        return "gifs/feargreed/extreme_fear.gif"
+        return "gifs/feargreed/extremefear_opt.gif"
     elif value <= 45:
-        return "gifs/feargreed/fear.gif"
+        return "gifs/feargreed/fear_opt.gif"
     elif value <= 55:
-        return "gifs/feargreed/neutral.gif"
+        return "gifs/feargreed/neutral_opt.gif"
     elif value <= 75:
-        return "gifs/feargreed/greed.gif"
+        return "gifs/feargreed/greed_opt.gif"
     else:
-        return "gifs/feargreed/extreme_greed.gif"
+        return "gifs/feargreed/extremegreed_opt.gif"
 
 def get_fear_greed_index():
     """Fetch the Fear & Greed Index from Alternative.me with caching"""
@@ -213,28 +220,90 @@ def get_btc_price():
     return f"BTC: ${price:,.2f}" if price else "Price Error"
 
 def display_price_ticker(disp):
-    """Display BTC price and 24h change using CoinGecko data"""
-    text_image = Image.new('RGB', (width, height), (0, 0, 0))
-    draw = ImageDraw.Draw(text_image)
-    price = get_btc_price()
-    change = get_price_change()
+    """Display BTC price ticker with date/time, animated USD, static GBP, and header"""
+    # Get BTC data
+    data = get_btc_data()
+    price_usd = data['price'] if data['price'] else 0
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Current time as placeholder
     
-    draw.text((10, height//2), price, 
-              font=FONTS['mono_large'], 
-              fill=(255, 215, 0))
+    # Fixed conversion rate (1 USD = 0.79 GBP, October 2023)
+    conversion_rate = 0.79
+    price_gbp = price_usd * conversion_rate if price_usd else 0
     
-    color = (0, 255, 0) if change.startswith('+') else (255, 0, 0)
-    draw.text((10, height//2 + 30), change, 
-              font=FONTS['mono_medium'], 
-              fill=color)
-    return [text_image]
+    # Animation parameters
+    frames = []
+    steps = 10  # 10 frames for counter effect
+    step_value = price_usd / steps
+    
+    # Generate animation frames
+    for i in range(steps):
+        img = Image.new('RGB', (width, height), (0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        
+        # Date and time at top (small font)
+        draw.text((10, 10), f"Data: {timestamp}", font=FONTS['regular_small'], fill=(255, 255, 255))
+        
+        # "Current Price" header (medium font)
+        header_text = "Current Price"
+        header_bbox = draw.textbbox((0, 0), header_text, font=FONTS['mono_medium'])
+        header_width = header_bbox[2] - header_bbox[0]
+        draw.text((width // 2 - header_width // 2, 40), header_text, 
+                  font=FONTS['mono_medium'], fill=(255, 255, 255))
+        
+        # Animated USD price (large font, gold)
+        current_usd = step_value * i
+        usd_text = f"BTC: ${current_usd:,.2f}"
+        usd_bbox = draw.textbbox((0, 0), usd_text, font=FONTS['mono_large'])
+        usd_width = usd_bbox[2] - usd_bbox[0]
+        draw.text((width // 2 - usd_width // 2, 90), usd_text, 
+                  font=FONTS['mono_large'], fill=(255, 215, 0))
+        
+        # GBP price below (medium font, gold)
+        gbp_text = f"£{price_gbp:,.2f}"
+        gbp_bbox = draw.textbbox((0, 0), gbp_text, font=FONTS['mono_medium'])
+        gbp_width = gbp_bbox[2] - gbp_bbox[0]
+        draw.text((width // 2 - gbp_width // 2, 140), gbp_text, 
+                  font=FONTS['mono_medium'], fill=(255, 215, 0))
+        
+        frames.append(img)
+    
+    # Final static frame (no animation)
+    final_img = Image.new('RGB', (width, height), (0, 0, 0))
+    draw = ImageDraw.Draw(final_img)
+    
+    draw.text((10, 10), f"Data: {timestamp}", font=FONTS['regular_small'], fill=(255, 255, 255))
+    header_bbox = draw.textbbox((0, 0), header_text, font=FONTS['mono_medium'])
+    header_width = header_bbox[2] - header_bbox[0]
+    draw.text((width // 2 - header_width // 2, 40), header_text, 
+              font=FONTS['mono_medium'], fill=(255, 255, 255))
+    
+    usd_text = f"BTC: ${price_usd:,.2f}"
+    usd_bbox = draw.textbbox((0, 0), usd_text, font=FONTS['mono_large'])
+    usd_width = usd_bbox[2] - usd_bbox[0]
+    draw.text((width // 2 - usd_width // 2, 90), usd_text, 
+              font=FONTS['mono_large'], fill=(255, 215, 0))
+    
+    gbp_text = f"£{price_gbp:,.2f}"
+    gbp_bbox = draw.textbbox((0, 0), gbp_text, font=FONTS['mono_medium'])
+    gbp_width = gbp_bbox[2] - gbp_bbox[0]
+    draw.text((width // 2 - gbp_width // 2, 140), gbp_text, 
+              font=FONTS['mono_medium'], fill=(255, 215, 0))
+    
+    # Add animation frames, then repeat final frame
+    frames.extend([final_img] * 10)  # 10 pause frames after animation
+    
+    print(f"Generated {len(frames)} frames for price ticker")
+    return frames
 
 def display_money_flow(disp):
-    """Display money flow animation"""
+    """Display money flow animation based on market direction"""
+    direction = get_market_direction()
+    gif_path = f"gifs/money_flow/flow_{direction}.gif"
     try:
-        frames = load_gif_frames(f"gifs/money_flow/flow_{get_market_direction()}.gif")
+        frames = load_gif_frames(gif_path, max_frames=20)
         return frames
-    except:
+    except Exception as e:
+        print(f"Money Flow GIF error: {e}")
         return [create_error_image("Money Flow Error")]
 
 def get_market_direction():
@@ -309,115 +378,117 @@ def set_mood_led(value):
         display.set_led(0.0, brightness*0.5, 0.0)
 
 def get_historical_fear_greed():
-    """Fetch historical Fear & Greed data"""
+    """Get historical Fear & Greed Index values with caching"""
+    global API_CACHE
+    cache_key = "fear_greed_historical"
+    if cache_key in API_CACHE and time.time() - API_CACHE[cache_key]["timestamp"] < 24 * 60 * 60:
+        return API_CACHE[cache_key]["data"]
+    
     try:
-        url = "https://api.alternative.me/fng/?limit=100"
+        url = "https://api.alternative.me/fng/?limit=0"
         response = requests.get(url, timeout=5)
-        data = response.json()
-        values = [(int(entry['value']), datetime.fromtimestamp(int(entry['timestamp']))) for entry in data['data']]
+        response.raise_for_status()
+        data = response.json()["data"]
+        values = [(int(entry["value"]), entry["timestamp"]) for entry in data]
+        API_CACHE[cache_key] = {"data": values, "timestamp": time.time()}
         return values
     except Exception as e:
-        print(f"Error fetching historical data: {e}")
-        return None
+        print(f"Error fetching historical Fear & Greed: {e}")
+        return []
 
 def display_historical_graph(disp):
-    """Create and display animated historical Fear & Greed graph"""
-    values = get_historical_fear_greed()
-    if not values:
-        return [create_error_image("Graph Error")]
-
-    # Create multiple frames for animation
+    """Display a 5-day BTC price graph with segmented colors, annotations, and smooth dot"""
+    # Get 5 days of BTC price data (mocked daily averages for now)
+    values = get_historical_btc_prices()  # Define this function below
+    if not values or len(values) < 5:
+        return [create_error_image("Graph Data Error")]
+    
+    # Use last 5 days
+    daily_prices = values[-5:]  # [price_day5, price_day4, price_day3, price_day2, price_day1]
+    
+    # Graph parameters
+    graph_width, graph_height = 280, 180
+    padding_x, padding_y = 20, 30
+    x_step = graph_width // 4  # 5 points = 4 segments
+    y_max = max(daily_prices) * 1.05  # 5% above max price
+    y_min = min(daily_prices) * 0.95  # 5% below min price
+    
+    # Normalize prices to graph height
+    points = []
+    for i, price in enumerate(daily_prices):
+        y = padding_y + int(graph_height * (y_max - price) / (y_max - y_min))
+        x = padding_x + i * x_step
+        points.append((x, y))
+    
+    # Generate frames with smooth dot movement
     frames = []
-    fear_greed_values, dates = zip(*values)
-    
-    # Set up style
-    plt.style.use('dark_background')
-    
-    # Create animation frames
-    for i in range(len(fear_greed_values)):
-        plt.figure(figsize=(3.2, 2.4), dpi=100)
+    steps_per_segment = 5  # 5 frames per line segment
+    for segment in range(4):  # 4 segments between 5 points
+        start_x, start_y = points[segment]
+        end_x, end_y = points[segment + 1]
+        trend_up = daily_prices[segment + 1] > daily_prices[segment]
+        line_color = (0, 255, 0) if trend_up else (255, 0, 0)
         
-        # Plot with gradient color based on values
-        points = fear_greed_values[:i+1]
-        dates_subset = dates[:i+1]
-        
-        # Create color gradient
-        colors = []
-        for value in points:
-            if value <= 25:
-                colors.append('#FF3333')  # Red for extreme fear
-            elif value <= 45:
-                colors.append('#FF9933')  # Orange for fear
-            elif value <= 55:
-                colors.append('#FFFF33')  # Yellow for neutral
-            elif value <= 75:
-                colors.append('#99FF33')  # Light green for greed
+        for step in range(steps_per_segment):
+            img = Image.new('RGB', (width, height), (0, 0, 0))
+            draw = ImageDraw.Draw(img)
+            
+            # Draw X/Y axes (white)
+            draw.line([(padding_x, padding_y), (padding_x, padding_y + graph_height)], fill=(255, 255, 255), width=2)
+            draw.line([(padding_x, padding_y + graph_height), (padding_x + graph_width, padding_y + graph_height)], fill=(255, 255, 255), width=2)
+            
+            # Draw segmented lines
+            for i in range(4):
+                p1 = points[i]
+                p2 = points[i + 1]
+                color = (0, 255, 0) if daily_prices[i + 1] > daily_prices[i] else (255, 0, 0)
+                draw.line([p1, p2], fill=color, width=2)
+            
+            # Draw arrowhead at end
+            last_x, last_y = points[-1]
+            trend_up = daily_prices[-1] > daily_prices[-2]
+            arrow_color = (0, 255, 0) if trend_up else (255, 0, 0)
+            if trend_up:
+                arrow_points = [(last_x, last_y), (last_x - 10, last_y + 10), (last_x + 10, last_y + 10)]
             else:
-                colors.append('#33FF33')  # Green for extreme greed
-
-        # Plot main line with gradient
-        plt.plot(dates_subset, points, 
-                linewidth=2,
-                color='white',
-                alpha=0.5)
-
-        # Add scatter points with color
-        plt.scatter(dates_subset, points,
-                   c=colors,
-                   s=50,
-                   zorder=5)
-
-        # Add moving average line
-        if len(points) > 7:
-            ma7 = np.convolve(points, np.ones(7)/7, mode='valid')
-            plt.plot(dates_subset[6:], ma7, 
-                    '--', color='cyan', 
-                    linewidth=1, 
-                    alpha=0.8,
-                    label='7-day MA')
-
-        # Zone highlighting
-        plt.axhspan(0, 25, color='red', alpha=0.1)
-        plt.axhspan(75, 100, color='green', alpha=0.1)
-        
-        # Grid and styling
-        plt.grid(True, linestyle='--', alpha=0.2)
-        plt.ylim(0, 100)
-        
-        # Add labels
-        plt.text(0.02, 0.95, f"Current: {fear_greed_values[0]}", 
-                transform=plt.gca().transAxes, 
-                color='white', 
-                fontsize=10,
-                bbox=dict(facecolor='black', alpha=0.7))
-        
-        # Add zone labels
-        plt.text(0.02, 0.15, "Extreme Fear", color='red', alpha=0.8)
-        plt.text(0.02, 0.85, "Extreme Greed", color='green', alpha=0.8)
-        
-        # Remove x-axis labels but keep ticks
-        plt.xticks([])
-        plt.yticks([0, 25, 50, 75, 100])
-        
-        # Save frame
-        buf = BytesIO()
-        plt.savefig(buf, format='png', 
-                   bbox_inches='tight', 
-                   facecolor='black',
-                   edgecolor='none')
-        plt.close()
-        
-        # Convert to PIL Image
-        buf.seek(0)
-        frame = Image.open(buf).convert('RGB')
-        frame = frame.resize((width, height))
-        frames.append(frame)
+                arrow_points = [(last_x, last_y), (last_x - 10, last_y - 10), (last_x + 10, last_y - 10)]
+            draw.polygon(arrow_points, fill=arrow_color, outline=arrow_color)
+            
+            # Interpolate dot position
+            t = step / steps_per_segment
+            dot_x = int(start_x + (end_x - start_x) * t)
+            dot_y = int(start_y + (end_y - start_y) * t)
+            dot_color = (0, 255, 0) if trend_up else (255, 0, 0)
+            draw.ellipse([(dot_x - 5, dot_y - 5), (dot_x + 5, dot_y + 5)], fill=dot_color, outline=(255, 255, 255))
+            
+            # X-axis annotations (1 to 5)
+            for i in range(5):
+                draw.text((padding_x + i * x_step - 5, padding_y + graph_height + 5), str(i + 1), 
+                          font=FONTS['regular_small'], fill=(255, 255, 255))
+            
+            # Y-axis annotations (price range)
+            y_steps = 5
+            price_step = (y_max - y_min) / (y_steps - 1)
+            for i in range(y_steps):
+                price = y_min + i * price_step
+                y_pos = padding_y + graph_height - int(graph_height * i / (y_steps - 1))
+                draw.text((padding_x - 40, y_pos - 5), f"${price:,.0f}", 
+                          font=FONTS['regular_small'], fill=(255, 255, 255))
+            
+            # Title: "5 Day Price Movement"
+            title = "5 Day Price Movement"
+            title_bbox = draw.textbbox((0, 0), title, font=FONTS['mono_medium'])
+            title_width = title_bbox[2] - title_bbox[0]
+            draw.text((width // 2 - title_width // 2, 5), title, 
+                      font=FONTS['mono_medium'], fill=(255, 255, 255))
+            
+            frames.append(img)
     
-    # Add pause on final frame
-    final_frame = frames[-1]
-    for _ in range(10):  # Add 10 copies of final frame
-        frames.append(final_frame)
+    # Add pause frames
+    for _ in range(5):
+        frames.append(frames[-1])
     
+    print(f"Generated {len(frames)} frames for historical graph")
     return frames
 
 # Define display modes and config
@@ -492,23 +563,27 @@ current_config_option = 0
 time_setting_option = 0
 
 def check_buttons_main():
-    """Handle button presses in main display modes with smart debouncing"""
-    global current_mode, current_mode_index, config, last_button_time
-    current_time = time.time() * 1000  # Convert to milliseconds
+    """Handle button presses in main display modes with optimized debouncing"""
+    global current_mode, current_mode_index, config, last_button_time, previous_mode
+    current_time = time.time() * 1000  # Milliseconds
     
     if (current_time - last_button_time) < BUTTON_DEBOUNCE_MS:
-        return False  # Too soon since last press
+        return False
     
     if display.read_button(display.BUTTON_A):
+        print("Button A detected")
+        previous_mode = current_mode
         current_mode = DisplayMode.CONFIG
         last_button_time = current_time
         return True
     elif display.read_button(display.BUTTON_B):
+        print("Button B detected")
         current_mode_index = (current_mode_index - 1) % len(modes)
         current_mode = modes[current_mode_index]
         last_button_time = current_time
         return True
     elif display.read_button(display.BUTTON_X):
+        print("Button X detected")
         config.led_enabled = not config.led_enabled
         if not config.led_enabled:
             display.set_led(0.0, 0.0, 0.0)
@@ -520,6 +595,7 @@ def check_buttons_main():
         last_button_time = current_time
         return True
     elif display.read_button(display.BUTTON_Y):
+        print("Button Y detected")
         current_mode_index = (current_mode_index + 1) % len(modes)
         current_mode = modes[current_mode_index]
         last_button_time = current_time
@@ -527,33 +603,37 @@ def check_buttons_main():
     return False
 
 def check_buttons_config():
-    """Handle button presses in config menu with smart debouncing"""
+    """Handle button presses in config menu with optimized debouncing"""
     global current_config_option, current_mode, last_button_time
-    current_time = time.time() * 1000  # Convert to milliseconds
+    current_time = time.time() * 1000
     
     if (current_time - last_button_time) < BUTTON_DEBOUNCE_MS:
-        return False  # Too soon since last press
+        return False
     
     if display.read_button(display.BUTTON_A):
-        current_config_option = (current_config_option - 1) % 6
+        print("Button A detected in config")
+        current_config_option = (current_config_option - 1) % 7
         last_button_time = current_time
         return True
     elif display.read_button(display.BUTTON_B):
-        current_config_option = (current_config_option + 1) % 6
+        print("Button B detected in config")
+        current_config_option = (current_config_option + 1) % 7
         last_button_time = current_time
         return True
     elif display.read_button(display.BUTTON_X):
+        print("Button X detected in config")
         handle_config_buttons(display.BUTTON_X)
         last_button_time = current_time
         return True
     elif display.read_button(display.BUTTON_Y):
+        print("Button Y detected in config")
         handle_config_buttons(display.BUTTON_Y)
         last_button_time = current_time
         return True
     return False
 
 def display_config_menu(disp):
-    """Display configuration menu"""
+    """Display configuration menu with Exit option"""
     image = Image.new('RGB', (width, height), (0, 0, 0))
     draw = ImageDraw.Draw(image)
     config = Config.load()
@@ -564,6 +644,7 @@ def display_config_menu(disp):
         f"LED: {'On' if config.led_enabled else 'Off'}",
         f"Enabled Modes: {len(config.enabled_modes)}",
         "Set System Time",
+        "Exit"  # New option
     ]
     
     for i, option in enumerate(options):
@@ -574,8 +655,8 @@ def display_config_menu(disp):
     return [image]
 
 def handle_config_buttons(pin):
-    """Handle value changes in config mode"""
-    global current_mode, time_setting_option
+    """Handle value changes in config mode with Exit option"""
+    global current_mode, time_setting_option, previous_mode
     config = Config.load()
     
     if pin == display.BUTTON_X:  # Increase value
@@ -588,7 +669,7 @@ def handle_config_buttons(pin):
             config.led_brightness = min(1.0, config.led_brightness + 0.1)
         elif current_config_option == 3:  # LED On/Off
             config.led_enabled = True
-            display.set_led(0.0, 0.0, 0.0)  # Will be updated by mode if needed
+            display.set_led(0.0, 0.0, 0.0)  # Will be updated by mode
         elif current_config_option == 5:  # Set System Time
             time_setting_option = 0
             current_mode = "time_setting"
@@ -603,8 +684,10 @@ def handle_config_buttons(pin):
         elif current_config_option == 3:  # LED On/Off
             config.led_enabled = False
             display.set_led(0.0, 0.0, 0.0)
-        elif current_config_option == 4:  # Exit on Enabled Modes with Y
-            current_mode = DisplayMode.FEAR_GREED
+        elif current_config_option == 4:  # Enabled Modes (no change on Y)
+            pass
+        elif current_config_option == 6:  # Exit
+            current_mode = previous_mode  # Return to previous mode
     config.save()
 
 def set_system_time(timestamp):
@@ -687,63 +770,73 @@ def handle_time_setting(pin):
     config.save()
 
 def display_boot_sequence(display):
-    """Display a polished boot sequence with 3D Welcome and techy WiFi check"""
-    # Common assets
+    """Display boot sequence with preloaded Bitcoin spin GIF"""
+    import psutil  # Add at top if not present
+    
     background = Image.new('RGB', (width, height), (0, 0, 0))
     try:
-        font_large = ImageFont.truetype(FONT_PATHS['bold'], 36)  # Bigger for impact
-        font_mono = ImageFont.truetype(FONT_PATHS['mono'], 16)  # Techy font
+        font_large = ImageFont.truetype(FONT_PATHS['bold'], 48)
+        font_mono = ImageFont.truetype(FONT_PATHS['mono'], 16)
     except Exception as e:
         print(f"Font load error: {e}")
         font_large = font_mono = ImageFont.load_default()
 
     # Step 1: 3D Welcome Animation
     welcome_text = "WELCOME"
-    max_scale = 2.0  # Max size for 3D effect
-    min_scale = 0.5  # Min size for depth
-    frames = 30  # Number of animation frames
+    max_scale_x = 2.0
+    max_scale_y = 3.0
+    min_scale = 0.5
+    frames = 25
     
     for i in range(frames):
         frame = background.copy()
         draw = ImageDraw.Draw(frame)
         
-        # Simulate 3D by scaling and rotating
-        scale = min_scale + (max_scale - min_scale) * (math.sin(i * math.pi / frames) + 1) / 2
-        angle = i * 360 / frames  # Full rotation
+        scale_x = min_scale + (max_scale_x - min_scale) * (math.sin(i * math.pi / frames) + 1) / 2
+        scale_y = min_scale + (max_scale_y - min_scale) * (math.sin(i * math.pi / frames) + 1) / 2
+        angle = i * 360 / frames
         
-        # Create a temporary image for the text
+        green_to_gold = i / (frames - 1)
+        r = int(255 * green_to_gold)
+        g = int(255 - 40 * green_to_gold)
+        b = 0
+        text_color = (r, g, b)
+        
         text_img = Image.new('RGB', (width, height), (0, 0, 0))
         text_draw = ImageDraw.Draw(text_img)
         text_bbox = text_draw.textbbox((0, 0), welcome_text, font=font_large)
         text_width = text_bbox[2] - text_bbox[0]
         text_height = text_bbox[3] - text_bbox[1]
         
-        # Draw text and scale/rotate
         text_draw.text((width // 2 - text_width // 2, height // 2 - text_height // 2),
-                      welcome_text, font=font_large, fill=(0, 255, 0))
-        scaled_size = (int(text_width * scale), int(text_height * scale))
+                      welcome_text, font=font_large, fill=text_color)
+        scaled_size = (int(text_width * scale_x), int(text_height * scale_y))
         text_img = text_img.resize(scaled_size, Image.Resampling.LANCZOS)
         text_img = text_img.rotate(angle, expand=True, fillcolor=(0, 0, 0))
         
-        # Paste centered
         paste_x = (width - text_img.width) // 2
         paste_y = (height - text_img.height) // 2
         frame.paste(text_img, (paste_x, paste_y))
         
-        # Add glow effect with brightness
         enhancer = ImageEnhance.Brightness(frame)
         frame = enhancer.enhance(1 + math.sin(i * math.pi / frames) * 0.5)
         
         display.st7789.display(frame)
-        time.sleep(0.05)
+        time.sleep(0.03)
 
     # Fade to black
+    text_bbox = ImageDraw.Draw(background).textbbox((0, 0), welcome_text, font=font_large)
+    text_width = text_bbox[2] - text_bbox[0]
+    text_height = text_bbox[3] - text_bbox[1]
+    center_x = width // 2 - text_width // 2
+    center_y = height // 2 - text_height // 2
+    
     for i in range(10):
         frame = background.copy()
         draw = ImageDraw.Draw(frame)
         brightness = 1.0 - (i / 10)
-        draw.text((width // 2 - 50, height // 2), welcome_text, font=font_large,
-                  fill=(0, int(255 * brightness), 0))
+        draw.text((center_x, center_y), welcome_text, font=font_large,
+                  fill=(int(255 * brightness), int(215 * brightness), 0))
         display.st7789.display(frame)
         time.sleep(0.03)
 
@@ -755,22 +848,18 @@ def display_boot_sequence(display):
         "",
     ]
     
-    # Simulate typing effect
     frame = background.copy()
     draw = ImageDraw.Draw(frame)
     for line_idx, line in enumerate(boot_lines):
         for char_idx in range(len(line) + 1):
             frame = background.copy()
             draw = ImageDraw.Draw(frame)
-            # Draw all previous lines
             for prev_idx, prev_line in enumerate(boot_lines[:line_idx]):
                 draw.text((10, 10 + prev_idx * 20), prev_line, font=font_mono, fill=(0, 255, 0))
-            # Draw current line up to char_idx
             draw.text((10, 10 + line_idx * 20), line[:char_idx], font=font_mono, fill=(0, 255, 0))
             display.st7789.display(frame)
-            time.sleep(0.02)  # Typing speed
+            time.sleep(0.02)
 
-    # WiFi check with status
     wifi_ok, ssid, signal = check_wifi()
     status_lines = [
         f"NETWORK: {'ONLINE' if wifi_ok else 'OFFLINE'}",
@@ -780,23 +869,67 @@ def display_boot_sequence(display):
         "BOOT COMPLETE - PRESS ANY KEY"
     ]
     
-    # Add status lines with flicker effect
     for i in range(20):
         frame = background.copy()
         draw = ImageDraw.Draw(frame)
         for idx, line in enumerate(boot_lines + status_lines):
-            color = (0, 255, 0) if i % 2 == 0 or idx < len(boot_lines) else (0, 200, 0)  # Flicker effect
+            color = (0, 255, 0) if i % 2 == 0 or idx < len(boot_lines) else (0, 200, 0)
             draw.text((10, 10 + idx * 20), line, font=font_mono, fill=color)
         display.st7789.display(frame)
-        time.sleep(0.05 if i < 10 else 0.02)  # Slow initial flicker, then faster
+        time.sleep(0.05 if i < 10 else 0.02)
     
-    # Wait for any button press to proceed
+    # Wait for button press with preloading
+    gif_path = random.choice(["gifs/animations/bitcoinspin1_opt.gif", "gifs/animations/bitcoinspin2_opt.gif"])
+    bitcoin_spin_frames = load_gif_frames(gif_path, max_frames=20)  # Limit to 20 frames
+    print(f"Memory before GIF loop: {psutil.virtual_memory().available / 1024 / 1024:.2f} MB")
+    
     while not (display.read_button(display.BUTTON_A) or
                display.read_button(display.BUTTON_B) or
                display.read_button(display.BUTTON_X) or
                display.read_button(display.BUTTON_Y)):
-        time.sleep(0.01)
-
+        time.sleep(0.005)
+    
+    # Step 3: Display Random Bitcoin Spin GIF
+    global current_mode, current_mode_index
+    current_mode = "boot_gif"
+    current_mode_index = 0
+    frame_index = 0
+    
+    try:
+        while current_mode == "boot_gif":
+            frame = bitcoin_spin_frames[frame_index % len(bitcoin_spin_frames)]
+            display.st7789.display(frame)
+            frame_index += 1
+            
+            button_pressed = check_buttons_main()
+            if button_pressed:
+                print(f"Button pressed, exiting GIF. Memory: {psutil.virtual_memory().available / 1024 / 1024:.2f} MB")
+                break
+            time.sleep(0.02)
+    finally:
+        del bitcoin_spin_frames  # Free GIF frames
+        print(f"Memory after GIF cleanup: {psutil.virtual_memory().available / 1024 / 1024:.2f} MB")
+        
+def get_historical_btc_prices():
+    """Get last 5 days of BTC prices from CoinGecko"""
+    global API_CACHE
+    cache_key = "btc_historical_prices"
+    if cache_key in API_CACHE and time.time() - API_CACHE[cache_key]["timestamp"] < 24 * 60 * 60:
+        return API_CACHE[cache_key]["data"]
+    
+    try:
+        url = "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=5&interval=daily"
+        response = requests.get(url, timeout=5)
+        response.raise_for_status()
+        data = response.json()["prices"]
+        # Extract daily closing prices (last 5 days)
+        prices = [price[1] for price in data[-5:]]  # [price_day5, ..., price_day1]
+        API_CACHE[cache_key] = {"data": prices, "timestamp": time.time()}
+        return prices
+    except Exception as e:
+        print(f"Error fetching BTC prices: {e}")
+        return []        
+        
 def check_wifi():
     """Check WiFi connection and get details"""
     try:
@@ -810,39 +943,44 @@ def check_wifi():
         return False, None, None
 
 def main():
-    """Main function with polished boot sequence"""
+    """Main function with optimized button responsiveness"""
+    import psutil
+    
     global current_mode, current_mode_index, config
     
-    # Run boot sequence first, blocking until complete
     display.set_backlight(0.0)
     black_screen = Image.new('RGB', (width, height), (0, 0, 0))
     display.st7789.display(black_screen)
-    for i in range(51):  # Smoother fade-in
+    for i in range(51):
         display.set_backlight(i / 50)
         time.sleep(0.02)
     display_boot_sequence(display)
     
-    # Load config after boot
     config = Config.load()
-    transition_functions = [Transitions.slide_left, Transitions.fade, Transitions.slide_up]
     last_frame = None
     
     try:
         while True:
-            # [Rest of your main loop remains unchanged]
-            # Handle buttons based on mode
+            print(f"Current mode: {current_mode}, Memory: {psutil.virtual_memory().available / 1024 / 1024:.2f} MB")
             if current_mode == DisplayMode.CONFIG:
                 button_pressed = check_buttons_config()
                 current_frames = display_config_menu(display)
             elif current_mode == "time_setting":
                 button_pressed = check_buttons_config()
                 current_frames = display_time_setting(display)
+            elif current_mode == "boot_gif":
+                button_pressed = check_buttons_main()
+                current_frames = [black_screen]
             else:
                 button_pressed = check_buttons_main()
-                if current_mode == DisplayMode.FEAR_GREED:
+                if psutil.virtual_memory().available < 50 * 1024 * 1024:
+                    print("Low memory, skipping complex modes")
+                    current_frames = [create_error_image("Low Memory")]
+                    current_mode = DisplayMode.PRICE_TICKER
+                elif current_mode == DisplayMode.FEAR_GREED:
                     index_data, value = get_fear_greed_index()
                     set_mood_led(value)
-                    current_frames = load_gif_frames(get_mood_gif(value))
+                    current_frames = load_gif_frames(get_mood_gif(value), max_frames=20)
                 elif current_mode == DisplayMode.PRICE_TICKER:
                     current_frames = display_price_ticker(display)
                 elif current_mode == DisplayMode.MONEY_FLOW:
@@ -852,44 +990,46 @@ def main():
                 else:
                     current_frames = [create_error_image("Unknown Mode")]
 
-            # Display frames with minimal delay
             start_time = time.time()
             frame_index = 0
             while time.time() - start_time < config.display_time:
-                current_frame = current_frames[frame_index % len(current_frames)]
-                if current_frame != last_frame or button_pressed:
-                    display.st7789.display(current_frame)
-                    last_frame = current_frame
-                
+                # Check buttons first for immediate response
                 if current_mode == DisplayMode.CONFIG or current_mode == "time_setting":
                     button_pressed = check_buttons_config()
                 else:
                     button_pressed = check_buttons_main()
                 
+                # Display frame only if needed
+                current_frame = current_frames[frame_index % len(current_frames)]
+                if current_frame != last_frame or button_pressed:
+                    display.st7789.display(current_frame)
+                    last_frame = current_frame
+                
+                # Minimal sleep, skipped if button pressed
                 if not button_pressed:
-                    time.sleep(0.01)
+                    time.sleep(0.005)  # Reduced from 0.01 to 0.005
+                else:
+                    frame_index = 0  # Reset frame index on button press for instant mode switch
                 frame_index += 1
 
-            # Transition to next mode
             if current_mode in modes:
                 next_mode_index = (current_mode_index + 1) % len(modes)
-                if modes[next_mode_index] == DisplayMode.FEAR_GREED:
+                current_mode = modes[next_mode_index]
+                print(f"Transitioning to {current_mode}, Memory: {psutil.virtual_memory().available / 1024 / 1024:.2f} MB")
+                if psutil.virtual_memory().available < 50 * 1024 * 1024:
+                    current_frames = [create_error_image("Low Memory")]
+                elif current_mode == DisplayMode.FEAR_GREED:
                     index_data, value = get_fear_greed_index()
-                    next_frames = load_gif_frames(get_mood_gif(value))
-                elif modes[next_mode_index] == DisplayMode.PRICE_TICKER:
-                    next_frames = display_price_ticker(display)
-                elif modes[next_mode_index] == DisplayMode.MONEY_FLOW:
-                    next_frames = display_money_flow(display)
-                elif modes[next_mode_index] == DisplayMode.HISTORICAL_GRAPH:
-                    next_frames = display_historical_graph(display)
+                    current_frames = load_gif_frames(get_mood_gif(value), max_frames=20)
+                elif current_mode == DisplayMode.PRICE_TICKER:
+                    current_frames = display_price_ticker(display)
+                elif current_mode == DisplayMode.MONEY_FLOW:
+                    current_frames = display_money_flow(display)
+                elif current_mode == DisplayMode.HISTORICAL_GRAPH:
+                    current_frames = display_historical_graph(display)
                 else:
-                    next_frames = [create_error_image("Unknown Mode")]
-                transition_func = np.random.choice(transition_functions)
-                for transition_frame in transition_func(current_frames[0], next_frames[0]):
-                    display.st7789.display(transition_frame)
-                    time.sleep(0.05)
-                current_mode_index = next_mode_index
-                current_mode = modes[current_mode_index]
+                    current_frames = [create_error_image("Unknown Mode")]
+                display.st7789.display(current_frames[0])
 
     except Exception as e:
         print(f"Error in main: {e}")
@@ -897,6 +1037,6 @@ def main():
         time.sleep(5)
     finally:
         cleanup()
-
+        
 if __name__ == "__main__":
     main()

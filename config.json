@@ -1,1 +1,1 @@
-{"display_time": 15, "brightness": 0.5000000000000001, "enabled_modes": ["fear_greed", "price_ticker", "money_flow"], "donation_address": "YOUR_BTC_ADDRESS", "manual_time": true, "time_offset": 0, "led_brightness": 0.4, "led_enabled": false}
+{"display_time": 15, "brightness": 0.5000000000000001, "enabled_modes": ["fear_greed", "price_ticker", "money_flow"], "donation_address": "YOUR_BTC_ADDRESS", "manual_time": true, "time_offset": 0, "led_brightness": 0.10000000000000003, "led_enabled": true}
