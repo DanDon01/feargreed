@@ -4,8 +4,8 @@
 [![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-Compatible-green.svg)](https://www.raspberrypi.org/)
 [![Bitcoin](https://img.shields.io/badge/Bitcoin-Fear%20%26%20Greed-orange.svg)](https://alternative.me/crypto/fear-and-greed-index/)
-[![Python Application](https://github.com/yourusername/feargreed/actions/workflows/python-app.yml/badge.svg)](https://github.com/yourusername/feargreed/actions/workflows/python-app.yml)
-[![codecov](https://codecov.io/gh/yourusername/feargreed/branch/main/graph/badge.svg)](https://codecov.io/gh/yourusername/feargreed)
+[![Python Application](https://github.com/DanDon01/feargreed/actions/workflows/python-app.yml/badge.svg)](https://github.com/DanDon01/feargreed/actions/workflows/python-app.yml)
+[![codecov](https://codecov.io/gh/DanDon01/feargreed/branch/main/graph/badge.svg)](https://codecov.io/gh/DanDon01/feargreed)
 
 A Raspberry Pi project that displays the current Bitcoin Fear & Greed Index on a ST7735 LCD display with animated GIFs representing different market sentiment levels.
 
