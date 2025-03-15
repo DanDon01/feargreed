@@ -4,8 +4,8 @@
 [![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-Compatible-green.svg)](https://www.raspberrypi.org/)
 [![Bitcoin](https://img.shields.io/badge/Bitcoin-Fear%20%26%20Greed-orange.svg)](https://alternative.me/crypto/fear-and-greed-index/)
-[![Python Application](https://github.com/yourusername/feargreed/actions/workflows/python-app.yml/badge.svg)](https://github.com/yourusername/feargreed/actions/workflows/python-app.yml)
-[![codecov](https://codecov.io/gh/yourusername/feargreed/branch/main/graph/badge.svg)](https://codecov.io/gh/yourusername/feargreed)
+[![Python Application](https://github.com/DanDon01/feargreed/actions/workflows/python-app.yml/badge.svg)](https://github.com/DanDon01/feargreed/actions/workflows/python-app.yml)
+[![codecov](https://codecov.io/gh/DanDon01/feargreed/branch/main/graph/badge.svg)](https://codecov.io/gh/DanDon01/feargreed)
 
 A Raspberry Pi project that displays the current Bitcoin Fear & Greed Index on a ST7735 LCD display with animated GIFs representing different market sentiment levels.
 
@@ -13,7 +13,9 @@ A Raspberry Pi project that displays the current Bitcoin Fear & Greed Index on a
 
 - Raspberry Pi (Zero 2W)
 - ST7735 LCD Display (Display Hat Mini)
-- Python 3.x
+- Python 3.7+
+- Minimum 512MB RAM (1GB swap recommended)
+- Memory monitoring (psutil)
 - Required Python packages: `pip install -r requirements.txt`
 
 ## Setup
@@ -33,44 +35,43 @@ A Raspberry Pi project that displays the current Bitcoin Fear & Greed Index on a
 ```
 feargreed/
 ├── feargreeddisplay.py
+├── config.json        # New: Persistent settings
 ├── README.md
-├── pytest.ini
-├── PiHatMiniPinout.txt
 └── gifs/
     ├── fear_greed/
-    │   ├── extreme_fear.gif
-    │   ├── fear.gif
-    │   ├── neutral.gif
-    │   ├── greed.gif
-    │   └── extreme_greed.gif
+    │   └── *_opt.gif  # Memory-optimized GIFs
     ├── money_flow/
-    │   ├── flow_up.gif
-    │   ├── flow_down.gif
-    │   └── flow_neutral.gif
-    ├── animations/    # Processed animation frames
-    ├── incoming/     # Drop new GIFs here
-    └── error.gif
+    │   └── flow_*.gif # Market direction animations
+    ├── animations/    
+    │   └── bitcoinspin*_opt.gif # Boot animations
+    └── error.gif      # Error state display
 ```
+
+## Boot Sequence
+
+1. Welcome Screen
+   - 3D rotating text animation
+   - Color transition effects
+   - Interactive welcome message
+
+2. System Check
+   - Hardware initialization
+   - Network interface check
+   - WiFi connection status
+   - Signal strength display
+
+3. Exit Options
+   - Press any button to continue
+   - Displays random Bitcoin spin animation
+   - Memory-optimized transition
 
 ## GIF Requirements
 
-- GIFs should be sized to match your ST7735 display resolution
-- Recommended dimensions: 160x128 pixels (may vary based on display hat mini)
-- The ST7735 library requires animated GIFs to be split into individual frames
-- You can use tools like ImageMagick to split GIFs:
-  ```bash
-  convert animated.gif frame_%03d.png
-  ```
-- Store the frame sequences in their respective sentiment folders
-- Frames should follow a consistent naming pattern (e.g., frame_001.png, frame_002.png)
-  
-- Each GIF represents a different market sentiment:
-  - extreme_fear.gif (Index value 0-25)
-  - fear.gif (Index value 26-45)
-  - neutral.gif (Index value 46-55)
-  - greed.gif (Index value 56-75)
-  - extreme_greed.gif (Index value 76-100)
-  - error.gif (displayed when API fetch fails)
+- Dimensions: 320x240 pixels
+- Frame limit: Maximum 20 frames
+- Optimized versions with '_opt' suffix
+- Memory-efficient loading
+- Cached frame storage
 
 ## GIF Processing
 
@@ -97,36 +98,60 @@ The project includes a GIF processor that monitors an incoming folder for new an
 
 ## Button Controls
 
-The Display HAT Mini features four buttons with the following functions:
+### Main Display
+- Button A (GPIO 5): Enter config menu
+- Button B (GPIO 6): Previous display mode
+- Button X (GPIO 16): Toggle LED
+- Button Y (GPIO 24): Next display mode
 
-- Button A (GPIO 5): Cycle through display modes (Fear & Greed, Historical Graph, Price Ticker)
-- Button B (GPIO 6): Adjust values in config menus / Cycle animations
-- Button X (GPIO 16): Modify selected options / Toggle LED
-- Button Y (GPIO 24): Enter config mode / Back / Decrease values
+### Config Menu
+- Button A: Move up
+- Button B: Move down
+- Button X: Increase value
+- Button Y: Decrease value / Back
+
+### Features
+- 5ms debounce protection
+- Memory-aware transitions
+- Cached frame storage
+- Button state logging
 
 ### Display Modes
 
 1. **Fear & Greed Index**
-- Shows current market sentiment with animated GIFs
-- Updates every 5 minutes
-- LED color indicates sentiment level
+   - Shows current sentiment (0-100)
+   - Memory-optimized GIF animations
+   - Auto-updates every 5 minutes
+   - LED color matches sentiment
+   - Frame limit: 20 frames per GIF
 
-2. **Historical Graph**
-- Animated build-up of last 100 data points
-- Color-coded scatter points
-- 7-day moving average line (cyan)
-- Zone highlighting with labels
-- Current value overlay
+2. **Price Ticker**
+   - Animated USD counter effect
+   - Static GBP conversion (0.79 rate)
+   - Current timestamp display
+   - Smooth animation transitions
 
-3. **Configuration Menu**
-- Display Time (5-30 seconds)
-- Screen Brightness (0-100%)
-- LED Brightness (0-100%)
-- LED Enable/Disable
-- Set System Time
-- Save & Exit
+3. **Money Flow**
+   - Market momentum visualization
+   - Up/Down/Neutral states
+   - Memory-efficient animations
+   - Auto-direction based on 24h change
 
-Press and hold any button for 3 seconds to exit the program.
+4. **Historical Graph**
+   - 5-day BTC price history
+   - Animated dot movement
+   - Color-coded segments
+   - Price range indicators
+   - Auto-scaling display
+
+## Memory Management
+
+- Frame limit: 20 frames per GIF
+- Auto memory monitoring
+- Low memory detection (<50MB)
+- Fallback to simple modes
+- Cache cleanup on transition
+- Memory usage logging
 
 ## Running the Display
 
@@ -136,21 +161,92 @@ python feargreeddisplay.py
 
 The display will automatically update with the current Fear & Greed Index and show the corresponding animated GIF.
 
+## API Setup & Usage
+
+### Data Sources
+- Fear & Greed Index: Alternative.me API
+- Price Data: CoinGecko API v3
+- Cache Duration: 5 minutes
+- Automatic retry with fallback to cached data
+
+### API Cache System
+```python
+API_CACHE = {
+    'fear_greed': {'data': None, 'timestamp': 0},
+    'coingecko': {'data': None, 'timestamp': 0},
+    'btc_historical': {'data': None, 'timestamp': 0}
+}
+CACHE_DURATION = 300  # 5 minutes
+```
+
+### Error States
+- Network Error: Shows error.gif with LED flash
+- Rate Limit: Uses cached data
+- Low Memory: Falls back to simple display
+- API Timeout: 5 second limit
+
+## Configuration System
+
+### config.json Settings
+```json
+{
+    "display_time": 10,
+    "brightness": 1.0,
+    "led_brightness": 0.5,
+    "led_enabled": true,
+    "enabled_modes": ["fear_greed", "price_ticker", "money_flow"],
+    "manual_time": false,
+    "time_offset": 0
+}
+```
+
+### Performance Settings
+- Frame Limit: 20 frames per GIF
+- Button Debounce: 5ms
+- Memory Threshold: 50MB
+- Cache Cleanup: Auto
+
+## Display Settings
+
+### Screen Configuration
+- Resolution: 320x240 pixels
+- PWM Backlight: 0.0-1.0
+- Rotation: 0 degrees
+- Default Theme: Dark
+
+### Font System
+```python
+FONT_PATHS = {
+    'regular': "DejaVuSans.ttf",
+    'bold': "DejaVuSans-Bold.ttf",
+    'mono': "DejaVuSansMono.ttf"
+}
+
+FONT_SIZES = {
+    'large': 26,
+    'medium': 20,
+    'small': 16,
+    'tiny': 12
+}
+```
+
+## Troubleshooting
+
+### Memory Issues
+- Monitor usage: Check psutil stats
+- Clear cache: Remove .pyc files
+- Increase swap: Follow swap setup
+- Limit frames: Max 20 per GIF
+
+### Display Problems
+- Black screen: Check backlight PWM
+- No animations: Verify frame limits
+- LED off: Check config.json
+- Slow response: Monitor CPU usage
+
 ## Data Source
 
 Fear & Greed Index data is fetched from Alternative.me API: https://alternative.me/crypto/fear-and-greed-index/
-
-## API Setup & Usage
-
-### Fear & Greed Index API
-This project uses the Alternative.me Crypto Fear & Greed Index API:
-- Base URL: `https://api.alternative.me/fng/`
-- No API key required
-- Free to use
-- Rate limits: 
-  - 1 request per second
-  - 30 requests per minute
-  - Unlimited daily requests
 
 ### Example API Response
 ```json
