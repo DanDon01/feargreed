@@ -13,6 +13,13 @@ import json
 import matplotlib.pyplot as plt
 from io import BytesIO
 
+# Cache to store API results with timestamps
+API_CACHE = {
+    'fear_greed': {'data': None, 'timestamp': 0},
+    'coingecko': {'data': None, 'timestamp': 0}
+}
+CACHE_DURATION = 300  # Cache data for 5 minutes (300 seconds)
+
 # Font definitions
 FONT_PATHS = {
     'regular': "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -43,6 +50,7 @@ def load_fonts():
         fonts['bold_small'] = ImageFont.truetype(FONT_PATHS['bold'], FONT_SIZES['small'])
         
         # Mono fonts (for numbers/data)
+        fonts['mono_large'] = ImageFont.truetype(FONT_PATHS['mono'], FONT_SIZES['large'])  # Added
         fonts['mono_medium'] = ImageFont.truetype(FONT_PATHS['mono'], FONT_SIZES['medium'])
         fonts['mono_small'] = ImageFont.truetype(FONT_PATHS['mono'], FONT_SIZES['small'])
     except Exception as e:
@@ -52,7 +60,7 @@ def load_fonts():
         fonts = {key: default for key in [
             'regular_large', 'regular_medium', 'regular_small', 'regular_tiny',
             'bold_large', 'bold_medium', 'bold_small',
-            'mono_medium', 'mono_small'
+            'mono_large', 'mono_medium', 'mono_small'  # Updated keys
         ]}
     return fonts
 
@@ -111,43 +119,94 @@ def get_mood_gif(value):
         return "gifs/error.gif"
     value = int(value)
     if value <= 25:
-        return "gifs/fear_greed/extreme_fear.gif"
+        return "gifs/feargreed/extreme_fear.gif"
     elif value <= 45:
-        return "gifs/fear_greed/fear.gif"
+        return "gifs/feargreed/fear.gif"
     elif value <= 55:
-        return "gifs/fear_greed/neutral.gif"
+        return "gifs/feargreed/neutral.gif"
     elif value <= 75:
-        return "gifs/fear_greed/greed.gif"
+        return "gifs/feargreed/greed.gif"
     else:
-        return "gifs/fear_greed/extreme_greed.gif"
+        return "gifs/feargreed/extreme_greed.gif"
 
 def get_fear_greed_index():
-    """Fetch the Fear & Greed Index"""
+    """Fetch the Fear & Greed Index from Alternative.me with caching"""
+    current_time = time.time()
+    cache = API_CACHE['fear_greed']
+    
+    # Return cached data if still valid
+    if cache['data'] and (current_time - cache['timestamp']) < CACHE_DURATION:
+        return cache['data'], cache['value']
+    
     try:
         url = "https://api.alternative.me/fng/"
         response = requests.get(url, timeout=5)
-        response.raise_for_status()  # Raise an HTTPError for bad responses
+        response.raise_for_status()
         data = response.json()
         value = data['data'][0]['value']
         classification = data['data'][0]['value_classification']
-        return f"Fear & Greed: {value}\n{classification}", value
+        result = f"Fear & Greed: {value}\n{classification}"
+        
+        # Update cache
+        API_CACHE['fear_greed']['data'] = result
+        API_CACHE['fear_greed']['value'] = value
+        API_CACHE['fear_greed']['timestamp'] = current_time
+        return result, value
     except requests.exceptions.RequestException as e:
         print(f"Error fetching Fear & Greed Index: {e}")
+        if cache['data']:  # Return stale data if available
+            return cache['data'], cache['value']
         return "Error fetching data", None
 
-def get_btc_price():
-    """Fetch current BTC price"""
+def get_btc_data():
+    """Fetch BTC price, 24h change, and volume from CoinGecko with caching"""
+    current_time = time.time()
+    cache = API_CACHE['coingecko']
+    
+    # Return cached data if still valid
+    if cache['data'] and (current_time - cache['timestamp']) < CACHE_DURATION:
+        return cache['data']
+    
     try:
-        response = requests.get("https://api.coindesk.com/v1/bpi/currentprice.json", timeout=5)
-        data = response.json()
-        price = data["bpi"]["USD"]["rate_float"]
-        return f"BTC: ${price:,.2f}"
-    except Exception as e:
-        print(f"Error fetching BTC price: {e}")
-        return "Price Error"
+        url = "https://api.coingecko.com/api/v3/coins/markets"
+        params = {
+            "ids": "bitcoin",
+            "vs_currency": "usd",
+            "order": "market_cap_desc",
+            "per_page": 1,
+            "page": 1,
+            "sparkline": False,
+            "price_change_percentage": "24h",
+            "locale": "en"
+        }
+        response = requests.get(url, params=params, timeout=5)
+        response.raise_for_status()
+        data = response.json()[0]
+        
+        result = {
+            'price': data['current_price'],
+            'change_24h': data['price_change_percentage_24h'],
+            'volume_24h': data['total_volume']
+        }
+        
+        # Update cache
+        API_CACHE['coingecko']['data'] = result
+        API_CACHE['coingecko']['timestamp'] = current_time
+        return result
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching BTC data from CoinGecko: {e}")
+        if cache['data']:  # Return stale data if available
+            return cache['data']
+        return {'price': None, 'change_24h': None, 'volume_24h': None}    
+
+def get_btc_price():
+    """Format BTC price from CoinGecko data"""
+    data = get_btc_data()
+    price = data['price']
+    return f"BTC: ${price:,.2f}" if price else "Price Error"
 
 def display_price_ticker(disp):
-    """Display BTC price and 24h change"""
+    """Display BTC price and 24h change using CoinGecko data"""
     text_image = Image.new('RGB', (width, height), (0, 0, 0))
     draw = ImageDraw.Draw(text_image)
     price = get_btc_price()
@@ -173,35 +232,26 @@ def display_money_flow(disp):
 
 def get_market_direction():
     """Determine market direction based on 24h price change"""
-    try:
-        response = requests.get("https://api.coindesk.com/v1/bpi/currentprice.json", timeout=5)
-        data = response.json()
-        current = data["bpi"]["USD"]["rate_float"]
-        yesterday = requests.get("https://api.coindesk.com/v1/bpi/historical/close.json?for=yesterday", timeout=5).json()
-        yesterday_price = float(list(yesterday["bpi"].values())[0])
-        return "up" if current > yesterday_price else "down"
-    except Exception as e:
-        print(f"Error determining market direction: {e}")
+    data = get_btc_data()
+    change = data['change_24h']
+    if change is None:
         return "neutral"
+    return "up" if change > 0 else "down"
 
 def display_volume_chart(disp):
-    """Display 24h volume chart"""
-    try:
-        response = requests.get("https://api.coingecko.com/api/v3/simple/price",
-                                params={"ids": "bitcoin", "vs_currencies": "usd", "include_24hr_vol": "true"},
-                                timeout=5)
-        data = response.json()
-        volume = data['bitcoin']['usd_24h_vol']
-        image = Image.new('RGB', (width, height), (0, 0, 0))
-        draw = ImageDraw.Draw(image)
-        font = ImageFont.load_default()
-        draw.text((5, 5), f"24h Vol: ${volume/1e9:.1f}B", 
-                 font=FONTS['mono_medium'], 
-                 fill=(255, 255, 255))
-        return [image]
-    except Exception as e:
-        print(f"Error fetching volume data: {e}")
+    """Display 24h volume chart using CoinGecko data"""
+    data = get_btc_data()
+    volume = data['volume_24h']
+    
+    if volume is None:
         return [create_error_image("Volume Error")]
+    
+    image = Image.new('RGB', (width, height), (0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.text((5, 5), f"24h Vol: ${volume/1e9:.1f}B", 
+             font=FONTS['mono_medium'], 
+             fill=(255, 255, 255))
+    return [image]
 
 def display_qr_code(disp, address):
     """Display QR code for donation address"""
@@ -222,17 +272,10 @@ def create_error_image(message="Error"):
     return image
 
 def get_price_change():
-    """Fetch 24-hour price change"""
-    try:
-        response = requests.get("https://api.coingecko.com/api/v3/simple/price",
-                                params={"ids": "bitcoin", "vs_currencies": "usd", "include_24hr_change": "true"},
-                                timeout=5)
-        data = response.json()
-        change = data['bitcoin']['usd_24h_change']
-        return f"{change:+.2f}%"
-    except Exception as e:
-        print(f"Error fetching price change: {e}")
-        return "N/A"
+    """Format 24-hour price change from CoinGecko data"""
+    data = get_btc_data()
+    change = data['change_24h']
+    return f"{change:+.2f}%" if change is not None else "N/A"
 
 def set_mood_led(value):
     """Set RGB LED color based on fear/greed value with brightness control"""
@@ -441,47 +484,61 @@ modes = [DisplayMode.FEAR_GREED, DisplayMode.PRICE_TICKER, DisplayMode.MONEY_FLO
 current_config_option = 0
 time_setting_option = 0
 
-def check_buttons():
-    """Poll buttons and update global state"""
-    global current_mode_index, current_mode, current_config_option, time_setting_option
+def check_buttons_main():
+    """Handle button presses in main display modes"""
+    global current_mode, current_mode_index, config
+    debounce_time = 0.05  # Reduced for faster response
+    
     if display.read_button(display.BUTTON_A):
-        if current_mode == DisplayMode.CONFIG:
-            current_config_option = (current_config_option - 1) % 5
-        elif current_mode == "time_setting":
-            time_setting_option = (time_setting_option - 1) % 7
-        else:
-            current_mode_index = (current_mode_index + 1) % len(modes)
-            current_mode = modes[current_mode_index]
-        time.sleep(0.2)  # Debounce
+        current_mode = DisplayMode.CONFIG
+        time.sleep(debounce_time)
+        return True
     elif display.read_button(display.BUTTON_B):
-        if current_mode == DisplayMode.CONFIG:
-            current_config_option = (current_config_option + 1) % 5
-        elif current_mode == "time_setting":
-            time_setting_option = (time_setting_option + 1) % 7
-        else:
-            current_mode_index = (current_mode_index - 1) % len(modes)
-            current_mode = modes[current_mode_index]
-        time.sleep(0.2)  # Debounce
+        current_mode_index = (current_mode_index - 1) % len(modes)
+        current_mode = modes[current_mode_index]
+        time.sleep(debounce_time)
+        return True
     elif display.read_button(display.BUTTON_X):
-        if current_mode == DisplayMode.CONFIG:
-            handle_config_buttons(display.BUTTON_X)
-        elif current_mode == "time_setting":
-            result = handle_time_setting(display.BUTTON_X)
-            if result == "config":
-                current_mode = DisplayMode.CONFIG
-        else:
+        config.led_enabled = not config.led_enabled
+        if not config.led_enabled:
             display.set_led(0.0, 0.0, 0.0)
-        time.sleep(0.2)  # Debounce
-    elif display.read_button(display.BUTTON_Y):
-        if current_mode == DisplayMode.CONFIG:
-            handle_config_buttons(display.BUTTON_Y)
-        elif current_mode == "time_setting":
-            result = handle_time_setting(display.BUTTON_Y)
-            if result == "config":
-                current_mode = DisplayMode.CONFIG
         else:
-            current_mode = DisplayMode.CONFIG
-        time.sleep(0.2)  # Debounce
+            # Reapply LED state based on current mode if needed
+            if current_mode == DisplayMode.FEAR_GREED:
+                _, value = get_fear_greed_index()
+                set_mood_led(value)
+        config.save()
+        time.sleep(debounce_time)
+        return True
+    elif display.read_button(display.BUTTON_Y):
+        current_mode_index = (current_mode_index + 1) % len(modes)
+        current_mode = modes[current_mode_index]
+        time.sleep(debounce_time)
+        return True
+    return False
+
+def check_buttons_config():
+    """Handle button presses in config menu"""
+    global current_config_option, current_mode
+    debounce_time = 0.05  # Reduced for faster response
+    
+    if display.read_button(display.BUTTON_A):
+        current_config_option = (current_config_option - 1) % 6
+        time.sleep(debounce_time)
+        return True
+    elif display.read_button(display.BUTTON_B):
+        current_config_option = (current_config_option + 1) % 6
+        time.sleep(debounce_time)
+        return True
+    elif display.read_button(display.BUTTON_X):
+        handle_config_buttons(display.BUTTON_X)  # Increase value
+        time.sleep(debounce_time)
+        return True
+    elif display.read_button(display.BUTTON_Y):
+        handle_config_buttons(display.BUTTON_Y)  # Decrease value
+        time.sleep(debounce_time)
+        return True
+    return False
 
 def display_config_menu(disp):
     """Display configuration menu"""
@@ -495,44 +552,48 @@ def display_config_menu(disp):
         f"LED: {'On' if config.led_enabled else 'Off'}",
         f"Enabled Modes: {len(config.enabled_modes)}",
         "Set System Time",
-        "Save & Exit"
     ]
     
     for i, option in enumerate(options):
         color = (0, 255, 0) if i == current_config_option else (255, 255, 255)
-        draw.text((10, 10 + i*25), option, 
+        draw.text((10, 10 + i * 25), option, 
                  font=FONTS['regular_medium'], 
                  fill=color)
     return [image]
 
 def handle_config_buttons(pin):
-    """Handle button presses in config mode"""
-    global current_config_option, current_mode
+    """Handle value changes in config mode"""
+    global current_mode, time_setting_option
     config = Config.load()
-    if pin == display.BUTTON_X:
-        if current_config_option == 0:
-            config.display_time = (config.display_time % 30) + 5
-        elif current_config_option == 1:
+    
+    if pin == display.BUTTON_X:  # Increase value
+        if current_config_option == 0:  # Display Time
+            config.display_time = min(30, config.display_time + 5)
+        elif current_config_option == 1:  # Screen Brightness
             config.brightness = min(1.0, config.brightness + 0.1)
             display.set_backlight(config.brightness)
-        elif current_config_option == 2:
+        elif current_config_option == 2:  # LED Brightness
             config.led_brightness = min(1.0, config.led_brightness + 0.1)
-        elif current_config_option == 3:
-            config.led_enabled = not config.led_enabled
-            if not config.led_enabled:
-                display.set_led(0.0, 0.0, 0.0)
-        elif current_config_option == 4:
-            global time_setting_option
+        elif current_config_option == 3:  # LED On/Off
+            config.led_enabled = True
+            display.set_led(0.0, 0.0, 0.0)  # Will be updated by mode if needed
+        elif current_config_option == 5:  # Set System Time
             time_setting_option = 0
             current_mode = "time_setting"
-        elif current_config_option == 5:
-            config.save()
-            current_mode = DisplayMode.FEAR_GREED
-        config.save()
-    elif pin == display.BUTTON_Y:
-        if current_config_option == 2:
+    elif pin == display.BUTTON_Y:  # Decrease value or exit
+        if current_config_option == 0:  # Display Time
+            config.display_time = max(5, config.display_time - 5)
+        elif current_config_option == 1:  # Screen Brightness
+            config.brightness = max(0.0, config.brightness - 0.1)
+            display.set_backlight(config.brightness)
+        elif current_config_option == 2:  # LED Brightness
             config.led_brightness = max(0.0, config.led_brightness - 0.1)
-        current_mode = DisplayMode.FEAR_GREED
+        elif current_config_option == 3:  # LED On/Off
+            config.led_enabled = False
+            display.set_led(0.0, 0.0, 0.0)
+        elif current_config_option == 4:  # Exit on Enabled Modes with Y
+            current_mode = DisplayMode.FEAR_GREED
+    config.save()
 
 def set_system_time(timestamp):
     """Set system time manually"""
@@ -660,55 +721,71 @@ def check_wifi():
         return False, None, None
 
 def main():
-    """Main function with improved initialization and boot sequence"""
-    global current_mode, current_mode_index  # Explicitly declare globals
+    """Main function with proper boot sequence and responsive controls"""
+    global current_mode, current_mode_index, config
+    
+    # Run boot sequence first
+    display.set_backlight(0.0)
+    black_screen = Image.new('RGB', (width, height), (0, 0, 0))
+    display.st7789.display(black_screen)
+    for i in range(101):
+        display.set_backlight(i / 100)
+        time.sleep(0.01)
+    display_boot_sequence(display)
+    
+    # Load config after boot
+    config = Config.load()
+    transition_functions = [Transitions.slide_left, Transitions.fade, Transitions.slide_up]
+    last_frame = None
+    
     try:
-        display.set_backlight(0.0)
-        black_screen = Image.new('RGB', (width, height), (0, 0, 0))
-        display.st7789.display(black_screen)
-        for i in range(101):
-            display.set_backlight(i/100)
-            time.sleep(0.01)
-
-        display_boot_sequence(display)
-        config = Config.load()
-        transition_functions = [Transitions.slide_left, Transitions.fade, Transitions.slide_up]
-
         while True:
-            check_buttons()
+            # Handle buttons based on mode
             if current_mode == DisplayMode.CONFIG:
+                button_pressed = check_buttons_config()
                 current_frames = display_config_menu(display)
             elif current_mode == "time_setting":
+                button_pressed = check_buttons_config()  # Reuse config logic for simplicity
                 current_frames = display_time_setting(display)
-            elif current_mode == DisplayMode.FEAR_GREED:
-                index_data, value = get_fear_greed_index()
-                set_mood_led(value)
-                current_frames = load_gif_frames(get_mood_gif(value))
-            elif current_mode == DisplayMode.PRICE_TICKER:
-                current_frames = [display_price_ticker(display)]
-            elif current_mode == DisplayMode.MONEY_FLOW:
-                current_frames = display_money_flow(display)
-            elif current_mode == DisplayMode.HISTORICAL_GRAPH:
-                current_frames = display_historical_graph(display)
             else:
-                current_frames = [create_error_image("Unknown Mode")]
+                button_pressed = check_buttons_main()
+                if current_mode == DisplayMode.FEAR_GREED:
+                    index_data, value = get_fear_greed_index()
+                    set_mood_led(value)
+                    current_frames = load_gif_frames(get_mood_gif(value))
+                elif current_mode == DisplayMode.PRICE_TICKER:
+                    current_frames = display_price_ticker(display)
+                elif current_mode == DisplayMode.MONEY_FLOW:
+                    current_frames = display_money_flow(display)
+                elif current_mode == DisplayMode.HISTORICAL_GRAPH:
+                    current_frames = display_historical_graph(display)
+                else:
+                    current_frames = [create_error_image("Unknown Mode")]
 
+            # Display frames
             start_time = time.time()
             frame_index = 0
             while time.time() - start_time < config.display_time:
-                frame = current_frames[frame_index % len(current_frames)]
-                display.st7789.display(frame)
+                current_frame = current_frames[frame_index % len(current_frames)]
+                if current_frame != last_frame or button_pressed:
+                    display.st7789.display(current_frame)
+                    last_frame = current_frame
                 frame_index += 1
-                check_buttons()
-                time.sleep(0.1)
+                # Button check happens outside sleep for immediate response
+                if current_mode == DisplayMode.CONFIG or current_mode == "time_setting":
+                    button_pressed = check_buttons_config()
+                else:
+                    button_pressed = check_buttons_main()
+                time.sleep(0.03)  # Reduced to 30ms for snappier response
 
-            if current_mode in modes:  # Only transition if not in config/time_setting
+            # Transition to next mode (only in main modes)
+            if current_mode in modes:
                 next_mode_index = (current_mode_index + 1) % len(modes)
                 if modes[next_mode_index] == DisplayMode.FEAR_GREED:
                     index_data, value = get_fear_greed_index()
                     next_frames = load_gif_frames(get_mood_gif(value))
                 elif modes[next_mode_index] == DisplayMode.PRICE_TICKER:
-                    next_frames = [display_price_ticker(display)]
+                    next_frames = display_price_ticker(display)
                 elif modes[next_mode_index] == DisplayMode.MONEY_FLOW:
                     next_frames = display_money_flow(display)
                 elif modes[next_mode_index] == DisplayMode.HISTORICAL_GRAPH:
