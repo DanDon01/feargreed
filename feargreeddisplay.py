@@ -1,3 +1,4 @@
+# Version 1.3 15/03/2025 09:42
 #!/usr/bin/env python3
 import RPi.GPIO as GPIO
 import atexit
@@ -12,6 +13,12 @@ import subprocess
 import json
 import matplotlib.pyplot as plt
 from io import BytesIO
+from PIL import ImageEnhance
+import math
+
+# Add at top of file after imports
+last_button_time = 0
+BUTTON_DEBOUNCE_MS = 10  # 10ms debounce window
 
 # Cache to store API results with timestamps
 API_CACHE = {
@@ -485,58 +492,63 @@ current_config_option = 0
 time_setting_option = 0
 
 def check_buttons_main():
-    """Handle button presses in main display modes"""
-    global current_mode, current_mode_index, config
-    debounce_time = 0.05  # Reduced for faster response
+    """Handle button presses in main display modes with smart debouncing"""
+    global current_mode, current_mode_index, config, last_button_time
+    current_time = time.time() * 1000  # Convert to milliseconds
+    
+    if (current_time - last_button_time) < BUTTON_DEBOUNCE_MS:
+        return False  # Too soon since last press
     
     if display.read_button(display.BUTTON_A):
         current_mode = DisplayMode.CONFIG
-        time.sleep(debounce_time)
+        last_button_time = current_time
         return True
     elif display.read_button(display.BUTTON_B):
         current_mode_index = (current_mode_index - 1) % len(modes)
         current_mode = modes[current_mode_index]
-        time.sleep(debounce_time)
+        last_button_time = current_time
         return True
     elif display.read_button(display.BUTTON_X):
         config.led_enabled = not config.led_enabled
         if not config.led_enabled:
             display.set_led(0.0, 0.0, 0.0)
         else:
-            # Reapply LED state based on current mode if needed
             if current_mode == DisplayMode.FEAR_GREED:
                 _, value = get_fear_greed_index()
                 set_mood_led(value)
         config.save()
-        time.sleep(debounce_time)
+        last_button_time = current_time
         return True
     elif display.read_button(display.BUTTON_Y):
         current_mode_index = (current_mode_index + 1) % len(modes)
         current_mode = modes[current_mode_index]
-        time.sleep(debounce_time)
+        last_button_time = current_time
         return True
     return False
 
 def check_buttons_config():
-    """Handle button presses in config menu"""
-    global current_config_option, current_mode
-    debounce_time = 0.05  # Reduced for faster response
+    """Handle button presses in config menu with smart debouncing"""
+    global current_config_option, current_mode, last_button_time
+    current_time = time.time() * 1000  # Convert to milliseconds
+    
+    if (current_time - last_button_time) < BUTTON_DEBOUNCE_MS:
+        return False  # Too soon since last press
     
     if display.read_button(display.BUTTON_A):
         current_config_option = (current_config_option - 1) % 6
-        time.sleep(debounce_time)
+        last_button_time = current_time
         return True
     elif display.read_button(display.BUTTON_B):
         current_config_option = (current_config_option + 1) % 6
-        time.sleep(debounce_time)
+        last_button_time = current_time
         return True
     elif display.read_button(display.BUTTON_X):
-        handle_config_buttons(display.BUTTON_X)  # Increase value
-        time.sleep(debounce_time)
+        handle_config_buttons(display.BUTTON_X)
+        last_button_time = current_time
         return True
     elif display.read_button(display.BUTTON_Y):
-        handle_config_buttons(display.BUTTON_Y)  # Decrease value
-        time.sleep(debounce_time)
+        handle_config_buttons(display.BUTTON_Y)
+        last_button_time = current_time
         return True
     return False
 
@@ -675,38 +687,115 @@ def handle_time_setting(pin):
     config.save()
 
 def display_boot_sequence(display):
-    """Display an animated boot sequence with real checks"""
+    """Display a polished boot sequence with 3D Welcome and techy WiFi check"""
+    # Common assets
     background = Image.new('RGB', (width, height), (0, 0, 0))
-    draw = ImageDraw.Draw(background)
     try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 26)
-        small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16)
-    except:
-        font = small_font = ImageFont.load_default()
+        font_large = ImageFont.truetype(FONT_PATHS['bold'], 36)  # Bigger for impact
+        font_mono = ImageFont.truetype(FONT_PATHS['mono'], 16)  # Techy font
+    except Exception as e:
+        print(f"Font load error: {e}")
+        font_large = font_mono = ImageFont.load_default()
 
-    for i in range(20):
+    # Step 1: 3D Welcome Animation
+    welcome_text = "WELCOME"
+    max_scale = 2.0  # Max size for 3D effect
+    min_scale = 0.5  # Min size for depth
+    frames = 30  # Number of animation frames
+    
+    for i in range(frames):
         frame = background.copy()
         draw = ImageDraw.Draw(frame)
-        draw.text((width//2-50, height//2), "WELCOME", font=font, fill=(0, int(255 * i / 20), 0))
+        
+        # Simulate 3D by scaling and rotating
+        scale = min_scale + (max_scale - min_scale) * (math.sin(i * math.pi / frames) + 1) / 2
+        angle = i * 360 / frames  # Full rotation
+        
+        # Create a temporary image for the text
+        text_img = Image.new('RGB', (width, height), (0, 0, 0))
+        text_draw = ImageDraw.Draw(text_img)
+        text_bbox = text_draw.textbbox((0, 0), welcome_text, font=font_large)
+        text_width = text_bbox[2] - text_bbox[0]
+        text_height = text_bbox[3] - text_bbox[1]
+        
+        # Draw text and scale/rotate
+        text_draw.text((width // 2 - text_width // 2, height // 2 - text_height // 2),
+                      welcome_text, font=font_large, fill=(0, 255, 0))
+        scaled_size = (int(text_width * scale), int(text_height * scale))
+        text_img = text_img.resize(scaled_size, Image.Resampling.LANCZOS)
+        text_img = text_img.rotate(angle, expand=True, fillcolor=(0, 0, 0))
+        
+        # Paste centered
+        paste_x = (width - text_img.width) // 2
+        paste_y = (height - text_img.height) // 2
+        frame.paste(text_img, (paste_x, paste_y))
+        
+        # Add glow effect with brightness
+        enhancer = ImageEnhance.Brightness(frame)
+        frame = enhancer.enhance(1 + math.sin(i * math.pi / frames) * 0.5)
+        
         display.st7789.display(frame)
         time.sleep(0.05)
 
+    # Fade to black
+    for i in range(10):
+        frame = background.copy()
+        draw = ImageDraw.Draw(frame)
+        brightness = 1.0 - (i / 10)
+        draw.text((width // 2 - 50, height // 2), welcome_text, font=font_large,
+                  fill=(0, int(255 * brightness), 0))
+        display.st7789.display(frame)
+        time.sleep(0.03)
+
+    # Step 2: Techy WiFi/Signal Check
+    boot_lines = [
+        "SYSTEM BOOT v1.1",
+        "INITIALIZING HARDWARE...",
+        "CHECKING NETWORK INTERFACE",
+        "",
+    ]
+    
+    # Simulate typing effect
     frame = background.copy()
     draw = ImageDraw.Draw(frame)
-    draw.text((10, 10), "Checking WiFi...", font=small_font, fill=(255, 255, 255))
-    display.st7789.display(frame)
+    for line_idx, line in enumerate(boot_lines):
+        for char_idx in range(len(line) + 1):
+            frame = background.copy()
+            draw = ImageDraw.Draw(frame)
+            # Draw all previous lines
+            for prev_idx, prev_line in enumerate(boot_lines[:line_idx]):
+                draw.text((10, 10 + prev_idx * 20), prev_line, font=font_mono, fill=(0, 255, 0))
+            # Draw current line up to char_idx
+            draw.text((10, 10 + line_idx * 20), line[:char_idx], font=font_mono, fill=(0, 255, 0))
+            display.st7789.display(frame)
+            time.sleep(0.02)  # Typing speed
+
+    # WiFi check with status
     wifi_ok, ssid, signal = check_wifi()
-    frame = background.copy()
-    draw = ImageDraw.Draw(frame)
-    if wifi_ok:
-        draw.text((10, 10), f"WiFi: {ssid}", font=small_font, fill=(0, 255, 0))
-        draw.text((10, 30), f"Signal: {signal}dBm", font=small_font, fill=(0, 255, 0))
-        display.set_led(0.0, 1.0, 0.0)
-    else:
-        draw.text((10, 10), "WiFi: Not Connected", font=small_font, fill=(255, 0, 0))
-        display.set_led(1.0, 0.0, 0.0)
-    display.st7789.display(frame)
-    time.sleep(1)
+    status_lines = [
+        f"NETWORK: {'ONLINE' if wifi_ok else 'OFFLINE'}",
+        f"SSID: {ssid if ssid else 'N/A'}",
+        f"SIGNAL: {signal if signal else 'N/A'} dBm",
+        "",
+        "BOOT COMPLETE - PRESS ANY KEY"
+    ]
+    
+    # Add status lines with flicker effect
+    for i in range(20):
+        frame = background.copy()
+        draw = ImageDraw.Draw(frame)
+        for idx, line in enumerate(boot_lines + status_lines):
+            color = (0, 255, 0) if i % 2 == 0 or idx < len(boot_lines) else (0, 200, 0)  # Flicker effect
+            draw.text((10, 10 + idx * 20), line, font=font_mono, fill=color)
+        display.st7789.display(frame)
+        time.sleep(0.05 if i < 10 else 0.02)  # Slow initial flicker, then faster
+    
+    # Wait for any button press to proceed
+    while not (display.read_button(display.BUTTON_A) or
+               display.read_button(display.BUTTON_B) or
+               display.read_button(display.BUTTON_X) or
+               display.read_button(display.BUTTON_Y)):
+        time.sleep(0.01)
 
 def check_wifi():
     """Check WiFi connection and get details"""
@@ -721,16 +810,16 @@ def check_wifi():
         return False, None, None
 
 def main():
-    """Main function with proper boot sequence and responsive controls"""
+    """Main function with polished boot sequence"""
     global current_mode, current_mode_index, config
     
-    # Run boot sequence first
+    # Run boot sequence first, blocking until complete
     display.set_backlight(0.0)
     black_screen = Image.new('RGB', (width, height), (0, 0, 0))
     display.st7789.display(black_screen)
-    for i in range(101):
-        display.set_backlight(i / 100)
-        time.sleep(0.01)
+    for i in range(51):  # Smoother fade-in
+        display.set_backlight(i / 50)
+        time.sleep(0.02)
     display_boot_sequence(display)
     
     # Load config after boot
@@ -740,12 +829,13 @@ def main():
     
     try:
         while True:
+            # [Rest of your main loop remains unchanged]
             # Handle buttons based on mode
             if current_mode == DisplayMode.CONFIG:
                 button_pressed = check_buttons_config()
                 current_frames = display_config_menu(display)
             elif current_mode == "time_setting":
-                button_pressed = check_buttons_config()  # Reuse config logic for simplicity
+                button_pressed = check_buttons_config()
                 current_frames = display_time_setting(display)
             else:
                 button_pressed = check_buttons_main()
@@ -762,7 +852,7 @@ def main():
                 else:
                     current_frames = [create_error_image("Unknown Mode")]
 
-            # Display frames
+            # Display frames with minimal delay
             start_time = time.time()
             frame_index = 0
             while time.time() - start_time < config.display_time:
@@ -770,15 +860,17 @@ def main():
                 if current_frame != last_frame or button_pressed:
                     display.st7789.display(current_frame)
                     last_frame = current_frame
-                frame_index += 1
-                # Button check happens outside sleep for immediate response
+                
                 if current_mode == DisplayMode.CONFIG or current_mode == "time_setting":
                     button_pressed = check_buttons_config()
                 else:
                     button_pressed = check_buttons_main()
-                time.sleep(0.03)  # Reduced to 30ms for snappier response
+                
+                if not button_pressed:
+                    time.sleep(0.01)
+                frame_index += 1
 
-            # Transition to next mode (only in main modes)
+            # Transition to next mode
             if current_mode in modes:
                 next_mode_index = (current_mode_index + 1) % len(modes)
                 if modes[next_mode_index] == DisplayMode.FEAR_GREED:
