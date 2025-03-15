@@ -13,6 +13,52 @@ import json
 import matplotlib.pyplot as plt
 from io import BytesIO
 
+# Font definitions
+FONT_PATHS = {
+    'regular': "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    'bold': "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    'mono': "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
+}
+
+FONT_SIZES = {
+    'large': 26,
+    'medium': 20,
+    'small': 16,
+    'tiny': 12
+}
+
+def load_fonts():
+    """Load and return font dictionary"""
+    fonts = {}
+    try:
+        # Regular fonts
+        fonts['regular_large'] = ImageFont.truetype(FONT_PATHS['regular'], FONT_SIZES['large'])
+        fonts['regular_medium'] = ImageFont.truetype(FONT_PATHS['regular'], FONT_SIZES['medium'])
+        fonts['regular_small'] = ImageFont.truetype(FONT_PATHS['regular'], FONT_SIZES['small'])
+        fonts['regular_tiny'] = ImageFont.truetype(FONT_PATHS['regular'], FONT_SIZES['tiny'])
+        
+        # Bold fonts
+        fonts['bold_large'] = ImageFont.truetype(FONT_PATHS['bold'], FONT_SIZES['large'])
+        fonts['bold_medium'] = ImageFont.truetype(FONT_PATHS['bold'], FONT_SIZES['medium'])
+        fonts['bold_small'] = ImageFont.truetype(FONT_PATHS['bold'], FONT_SIZES['small'])
+        
+        # Mono fonts (for numbers/data)
+        fonts['mono_medium'] = ImageFont.truetype(FONT_PATHS['mono'], FONT_SIZES['medium'])
+        fonts['mono_small'] = ImageFont.truetype(FONT_PATHS['mono'], FONT_SIZES['small'])
+    except Exception as e:
+        print(f"Warning: Could not load fonts: {e}")
+        # Fallback to default font for all
+        default = ImageFont.load_default()
+        fonts = {key: default for key in [
+            'regular_large', 'regular_medium', 'regular_small', 'regular_tiny',
+            'bold_large', 'bold_medium', 'bold_small',
+            'mono_medium', 'mono_small'
+        ]}
+    return fonts
+
+# Initialize fonts globally
+FONTS = load_fonts()
+
 # Initialize GPIO once (no cleanup here to avoid warning)
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
@@ -106,11 +152,16 @@ def display_price_ticker(disp):
     draw = ImageDraw.Draw(text_image)
     price = get_btc_price()
     change = get_price_change()
-    font = ImageFont.load_default()
-    draw.text((10, height//2), price, font=font, fill=(255, 215, 0))
+    
+    draw.text((10, height//2), price, 
+              font=FONTS['mono_large'], 
+              fill=(255, 215, 0))
+    
     color = (0, 255, 0) if change.startswith('+') else (255, 0, 0)
-    draw.text((10, height//2 + 20), change, font=font, fill=color)
-    return text_image
+    draw.text((10, height//2 + 30), change, 
+              font=FONTS['mono_medium'], 
+              fill=color)
+    return [text_image]
 
 def display_money_flow(disp):
     """Display money flow animation"""
@@ -144,7 +195,9 @@ def display_volume_chart(disp):
         image = Image.new('RGB', (width, height), (0, 0, 0))
         draw = ImageDraw.Draw(image)
         font = ImageFont.load_default()
-        draw.text((5, 5), f"24h Vol: ${volume/1e9:.1f}B", font=font, fill=(255, 255, 255))
+        draw.text((5, 5), f"24h Vol: ${volume/1e9:.1f}B", 
+                 font=FONTS['mono_medium'], 
+                 fill=(255, 255, 255))
         return [image]
     except Exception as e:
         print(f"Error fetching volume data: {e}")
@@ -163,8 +216,9 @@ def create_error_image(message="Error"):
     """Create a simple error image"""
     image = Image.new('RGB', (width, height), (0, 0, 0))
     draw = ImageDraw.Draw(image)
-    font = ImageFont.load_default()
-    draw.text((10, height//2), message, font=font, fill=(255, 0, 0))
+    draw.text((10, height//2), message, 
+              font=FONTS['bold_medium'], 
+              fill=(255, 0, 0))
     return image
 
 def get_price_change():
@@ -181,21 +235,28 @@ def get_price_change():
         return "N/A"
 
 def set_mood_led(value):
-    """Set RGB LED color based on fear/greed value"""
-    if value is None:
-        display.set_led(1.0, 0.0, 0.0)  # Red for error
+    """Set RGB LED color based on fear/greed value with brightness control"""
+    config = Config.load()
+    if not config.led_enabled:
+        display.set_led(0.0, 0.0, 0.0)
         return
+        
+    brightness = config.led_brightness
+    if value is None:
+        display.set_led(brightness, 0.0, 0.0)  # Red for error
+        return
+        
     value = int(value)
     if value <= 25:      # Extreme fear - deep red
-        display.set_led(1.0, 0.0, 0.0)
+        display.set_led(brightness, 0.0, 0.0)
     elif value <= 45:    # Fear - orange
-        display.set_led(1.0, 0.65, 0.0)
+        display.set_led(brightness, brightness*0.65, 0.0)
     elif value <= 55:    # Neutral - yellow
-        display.set_led(1.0, 1.0, 0.0)
+        display.set_led(brightness, brightness, 0.0)
     elif value <= 75:    # Greed - light green
-        display.set_led(0.0, 1.0, 0.0)
-    else:                # Extreme greed - deep green
-        display.set_led(0.0, 0.5, 0.0)
+        display.set_led(0.0, brightness, 0.0)
+    else:               # Extreme greed - deep green
+        display.set_led(0.0, brightness*0.5, 0.0)
 
 def get_historical_fear_greed():
     """Fetch historical Fear & Greed data"""
@@ -210,28 +271,104 @@ def get_historical_fear_greed():
         return None
 
 def display_historical_graph(disp):
-    """Create and display historical Fear & Greed graph"""
+    """Create and display animated historical Fear & Greed graph"""
     values = get_historical_fear_greed()
     if not values:
         return [create_error_image("Graph Error")]
-    plt.figure(figsize=(1.6, 1.28), dpi=100)
-    plt.style.use('dark_background')
+
+    # Create multiple frames for animation
+    frames = []
     fear_greed_values, dates = zip(*values)
-    plt.plot(dates, fear_greed_values, color='white', linewidth=1)
-    plt.axhline(y=25, color='red', linestyle='--', alpha=0.3)
-    plt.axhline(y=75, color='green', linestyle='--', alpha=0.3)
-    plt.fill_between(dates, fear_greed_values, where=[v <= 25 for v in fear_greed_values], color='red', alpha=0.2)
-    plt.fill_between(dates, fear_greed_values, where=[v >= 75 for v in fear_greed_values], color='green', alpha=0.2)
-    plt.xticks([])
-    plt.yticks([0, 25, 50, 75, 100])
-    plt.text(0.02, 0.95, f"Current: {fear_greed_values[0]}", transform=plt.gca().transAxes, color='white', fontsize=8)
-    buf = BytesIO()
-    plt.savefig(buf, format='png', bbox_inches='tight', transparent=True)
-    plt.close()
-    buf.seek(0)
-    graph_image = Image.open(buf).convert("RGB")  # Convert to RGB to avoid RGBA mismatch
-    graph_image = graph_image.resize((width, height))
-    return [graph_image]
+    
+    # Set up style
+    plt.style.use('dark_background')
+    
+    # Create animation frames
+    for i in range(len(fear_greed_values)):
+        plt.figure(figsize=(3.2, 2.4), dpi=100)
+        
+        # Plot with gradient color based on values
+        points = fear_greed_values[:i+1]
+        dates_subset = dates[:i+1]
+        
+        # Create color gradient
+        colors = []
+        for value in points:
+            if value <= 25:
+                colors.append('#FF3333')  # Red for extreme fear
+            elif value <= 45:
+                colors.append('#FF9933')  # Orange for fear
+            elif value <= 55:
+                colors.append('#FFFF33')  # Yellow for neutral
+            elif value <= 75:
+                colors.append('#99FF33')  # Light green for greed
+            else:
+                colors.append('#33FF33')  # Green for extreme greed
+
+        # Plot main line with gradient
+        plt.plot(dates_subset, points, 
+                linewidth=2,
+                color='white',
+                alpha=0.5)
+
+        # Add scatter points with color
+        plt.scatter(dates_subset, points,
+                   c=colors,
+                   s=50,
+                   zorder=5)
+
+        # Add moving average line
+        if len(points) > 7:
+            ma7 = np.convolve(points, np.ones(7)/7, mode='valid')
+            plt.plot(dates_subset[6:], ma7, 
+                    '--', color='cyan', 
+                    linewidth=1, 
+                    alpha=0.8,
+                    label='7-day MA')
+
+        # Zone highlighting
+        plt.axhspan(0, 25, color='red', alpha=0.1)
+        plt.axhspan(75, 100, color='green', alpha=0.1)
+        
+        # Grid and styling
+        plt.grid(True, linestyle='--', alpha=0.2)
+        plt.ylim(0, 100)
+        
+        # Add labels
+        plt.text(0.02, 0.95, f"Current: {fear_greed_values[0]}", 
+                transform=plt.gca().transAxes, 
+                color='white', 
+                fontsize=10,
+                bbox=dict(facecolor='black', alpha=0.7))
+        
+        # Add zone labels
+        plt.text(0.02, 0.15, "Extreme Fear", color='red', alpha=0.8)
+        plt.text(0.02, 0.85, "Extreme Greed", color='green', alpha=0.8)
+        
+        # Remove x-axis labels but keep ticks
+        plt.xticks([])
+        plt.yticks([0, 25, 50, 75, 100])
+        
+        # Save frame
+        buf = BytesIO()
+        plt.savefig(buf, format='png', 
+                   bbox_inches='tight', 
+                   facecolor='black',
+                   edgecolor='none')
+        plt.close()
+        
+        # Convert to PIL Image
+        buf.seek(0)
+        frame = Image.open(buf).convert('RGB')
+        frame = frame.resize((width, height))
+        frames.append(frame)
+    
+    # Add pause on final frame
+    final_frame = frames[-1]
+    for _ in range(10):  # Add 10 copies of final frame
+        frames.append(final_frame)
+    
+    return frames
 
 # Define display modes and config
 class DisplayMode:
@@ -251,6 +388,8 @@ class Config:
         self.donation_address = "YOUR_BTC_ADDRESS"
         self.manual_time = False
         self.time_offset = 0
+        self.led_brightness = 0.5  # Add LED brightness (0.0-1.0)
+        self.led_enabled = True    # Add LED enable/disable toggle
 
     def save(self):
         with open('config.json', 'w') as f:
@@ -351,15 +490,19 @@ def display_config_menu(disp):
     config = Config.load()
     options = [
         f"Display Time: {config.display_time}s",
-        f"Brightness: {int(config.brightness * 100)}%",
+        f"Screen Bright: {int(config.brightness * 100)}%",
+        f"LED Bright: {int(config.led_brightness * 100)}%",
+        f"LED: {'On' if config.led_enabled else 'Off'}",
         f"Enabled Modes: {len(config.enabled_modes)}",
         "Set System Time",
         "Save & Exit"
     ]
-    font = ImageFont.load_default()
+    
     for i, option in enumerate(options):
         color = (0, 255, 0) if i == current_config_option else (255, 255, 255)
-        draw.text((10, 10 + i*20), option, font=font, fill=color)
+        draw.text((10, 10 + i*25), option, 
+                 font=FONTS['regular_medium'], 
+                 fill=color)
     return [image]
 
 def handle_config_buttons(pin):
@@ -372,15 +515,23 @@ def handle_config_buttons(pin):
         elif current_config_option == 1:
             config.brightness = min(1.0, config.brightness + 0.1)
             display.set_backlight(config.brightness)
+        elif current_config_option == 2:
+            config.led_brightness = min(1.0, config.led_brightness + 0.1)
         elif current_config_option == 3:
+            config.led_enabled = not config.led_enabled
+            if not config.led_enabled:
+                display.set_led(0.0, 0.0, 0.0)
+        elif current_config_option == 4:
             global time_setting_option
             time_setting_option = 0
             current_mode = "time_setting"
-        elif current_config_option == 4:
+        elif current_config_option == 5:
             config.save()
             current_mode = DisplayMode.FEAR_GREED
         config.save()
     elif pin == display.BUTTON_Y:
+        if current_config_option == 2:
+            config.led_brightness = max(0.0, config.led_brightness - 0.1)
         current_mode = DisplayMode.FEAR_GREED
 
 def set_system_time(timestamp):
@@ -408,11 +559,17 @@ def display_time_setting(disp):
         "Set Time",
         "Back"
     ]
-    font = ImageFont.load_default()
+    
     for i, option in enumerate(options):
         color = (0, 255, 0) if i == time_setting_option else (255, 255, 255)
-        draw.text((10, 10 + i*20), option, font=font, fill=color)
-    draw.text((10, height-30), f"New: {current_time.strftime('%Y-%m-%d %H:%M')}", font=font, fill=(255, 165, 0))
+        draw.text((10, 10 + i*25), option, 
+                 font=FONTS['mono_medium'] if i < 5 else FONTS['regular_medium'], 
+                 fill=color)
+    
+    draw.text((10, height-30), 
+              f"New: {current_time.strftime('%Y-%m-%d %H:%M')}", 
+              font=FONTS['mono_medium'], 
+              fill=(255, 165, 0))
     return [image]
 
 def handle_time_setting(pin):

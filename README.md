@@ -99,10 +99,32 @@ The project includes a GIF processor that monitors an incoming folder for new an
 
 The Display HAT Mini features four buttons with the following functions:
 
-- Button A (GPIO 5): Toggle between Fear & Greed Index display and custom animation loop
-- Button B (GPIO 6): Cycle through available money flow animations
-- Button X (GPIO 16): Cycle through custom animations in the animations folder
-- Button Y (GPIO 24): Toggle display backlight on/off
+- Button A (GPIO 5): Cycle through display modes (Fear & Greed, Historical Graph, Price Ticker)
+- Button B (GPIO 6): Adjust values in config menus / Cycle animations
+- Button X (GPIO 16): Modify selected options / Toggle LED
+- Button Y (GPIO 24): Enter config mode / Back / Decrease values
+
+### Display Modes
+
+1. **Fear & Greed Index**
+- Shows current market sentiment with animated GIFs
+- Updates every 5 minutes
+- LED color indicates sentiment level
+
+2. **Historical Graph**
+- Animated build-up of last 100 data points
+- Color-coded scatter points
+- 7-day moving average line (cyan)
+- Zone highlighting with labels
+- Current value overlay
+
+3. **Configuration Menu**
+- Display Time (5-30 seconds)
+- Screen Brightness (0-100%)
+- LED Brightness (0-100%)
+- LED Enable/Disable
+- Set System Time
+- Save & Exit
 
 Press and hold any button for 3 seconds to exit the program.
 
