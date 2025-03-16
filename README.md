@@ -9,7 +9,7 @@
 
 A Raspberry Pi project that displays the current Bitcoin Fear & Greed Index on a ST7735 LCD display with animated GIFs representing different market sentiment levels.
 
-## Requirements
+## 🛠️ Requirements
 
 - Raspberry Pi (Zero 2W)
 - ST7735 LCD Display (Display Hat Mini)
@@ -18,7 +18,7 @@ A Raspberry Pi project that displays the current Bitcoin Fear & Greed Index on a
 - Memory monitoring (psutil)
 - Required Python packages: `pip install -r requirements.txt`
 
-## Setup
+## 🚀 Setup
 
 1. Connect the ST7735 display to your Raspberry Pi
 2. This automates everything:
@@ -47,7 +47,7 @@ feargreed/
     └── error.gif      # Error state display
 ```
 
-## Boot Sequence
+## 🎬 Boot Sequence
 
 1. Welcome Screen
    - 3D rotating text animation
@@ -65,7 +65,7 @@ feargreed/
    - Displays random Bitcoin spin animation
    - Memory-optimized transition
 
-## GIF Requirements
+## 🖼️ GIF Requirements
 
 - Dimensions: 320x240 pixels
 - Frame limit: Maximum 20 frames
@@ -73,7 +73,7 @@ feargreed/
 - Memory-efficient loading
 - Cached frame storage
 
-## GIF Processing
+## ⚙️ GIF Processing
 
 The project includes a GIF processor that monitors an incoming folder for new animations:
 
@@ -96,7 +96,7 @@ The project includes a GIF processor that monitors an incoming folder for new an
 
 5. Use the Display HAT Mini button to cycle through animations
 
-## Button Controls
+## 🎮 Button Controls
 
 ### Main Display
 - Button A (GPIO 5): Enter config menu
@@ -144,7 +144,7 @@ The project includes a GIF processor that monitors an incoming folder for new an
    - Price range indicators
    - Auto-scaling display
 
-## Memory Management
+## 💾 Memory Management
 
 - Frame limit: 20 frames per GIF
 - Auto memory monitoring
@@ -153,7 +153,7 @@ The project includes a GIF processor that monitors an incoming folder for new an
 - Cache cleanup on transition
 - Memory usage logging
 
-## Running the Display
+## ▶️ Running the Display
 
 ```bash
 python feargreeddisplay.py
@@ -161,7 +161,7 @@ python feargreeddisplay.py
 
 The display will automatically update with the current Fear & Greed Index and show the corresponding animated GIF.
 
-## API Setup & Usage
+## 🌐 API Setup & Usage
 
 ### Data Sources
 - Fear & Greed Index: Alternative.me API
@@ -185,7 +185,7 @@ CACHE_DURATION = 300  # 5 minutes
 - Low Memory: Falls back to simple display
 - API Timeout: 5 second limit
 
-## Configuration System
+## 🔧 Configuration System
 
 ### config.json Settings
 ```json
@@ -206,7 +206,7 @@ CACHE_DURATION = 300  # 5 minutes
 - Memory Threshold: 50MB
 - Cache Cleanup: Auto
 
-## Display Settings
+## 📺 Display Settings
 
 ### Screen Configuration
 - Resolution: 320x240 pixels
@@ -230,7 +230,7 @@ FONT_SIZES = {
 }
 ```
 
-## Troubleshooting
+## ❗ Troubleshooting
 
 ### Memory Issues
 - Monitor usage: Check psutil stats
@@ -244,7 +244,7 @@ FONT_SIZES = {
 - LED off: Check config.json
 - Slow response: Monitor CPU usage
 
-## Data Source
+## 📊 Data Source
 
 Fear & Greed Index data is fetched from Alternative.me API: https://alternative.me/crypto/fear-and-greed-index/
 
@@ -288,7 +288,7 @@ For testing without API calls, use the `--mock` flag:
 python feargreeddisplay.py --mock
 ```
 
-# Contributing to Fear & Greed Index Display
+## 🤝 Contributing to Fear & Greed Index Display
 
 ## Getting Started
 1. Fork the repository
@@ -300,7 +300,7 @@ python feargreeddisplay.py --mock
 ## Development Setup
 [To come: development environment setup instructions]
 
-## Testing
+## 🧪 Testing
 
 ### Setting Up Tests
 
@@ -413,10 +413,10 @@ This project uses GitHub Actions for automated testing. Every push and pull requ
 
 View the latest test results in the [Actions tab](https://github.com/DanDon01/feargreed/actions) of the repository.
 
-## Code Style
+## 📝 Code Style
 Follow PEP 8 guidelines
 
-## Quick Start Guide
+## 🏃 Quick Start Guide
 
 1. Download project:
    ```bash
@@ -435,7 +435,7 @@ Follow PEP 8 guidelines
    python feargreeddisplay.py
    ```
 
-## Common Problems & Solutions
+## ⚠️ Common Problems & Solutions
 
 1. "Display shows nothing"
 
@@ -459,7 +459,7 @@ Follow PEP 8 guidelines
 - Retries after 60 seconds
 - Logs errors to `error.log`
 
-## Display Modes
+## 📱 Display Modes
 
 ### 1. Fear & Greed Index
 - Shows current market sentiment (0-100)
@@ -492,7 +492,7 @@ Follow PEP 8 guidelines
 - Buy/Sell pressure indicators
 - Volume analysis
 
-## Display Controls
+## 🎛️ Display Controls
 
 ### Button Functions
 - A (GPIO 5): Cycle display modes
@@ -632,7 +632,7 @@ For offline time keeping, you can add an RTC module:
    sudo reboot
    ```
 
-## LED Controls & Configuration
+## 💡 LED Controls & Configuration
 
 ### LED Brightness
 The onboard RGB LED brightness can be configured:
@@ -671,7 +671,7 @@ The config menu allows you to:
 - Brightness can be set very low
 - Settings persist through reboots
 
-## Need Help?
+## ❓ Need Help?
 Create an issue on GitHub
 Check https://thepihut.com/products/display-hat-mini
 Check https://thepihut.com/products/raspberry-pi-zero-2
