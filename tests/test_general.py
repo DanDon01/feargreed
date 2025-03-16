@@ -1,11 +1,10 @@
+# We will test the basic functionality of the FearGreedDisplay class
+# and the required folder structure for the GIFs.
+
 import pytest
-import platform
 
 from feargreeddisplay import FearGreedDisplay
 
-# Skip test if not running on Raspberry Pi (These two lines are for GitHub Actions only and can be removed if not using it)
-if not platform.machine().startswith("arm"):
-    pytest.skip("Skipping test because it's not running on a Raspberry Pi", allow_module_level=True)
 
 def test_fear_greed_ranges():
     """Test fear/greed index categorization"""

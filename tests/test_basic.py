@@ -1,12 +1,9 @@
+# Test cases for basic functionality of the Fear & Greed Display application
+# and the required folder structure for the GIFs.
+
 import pytest
 import psutil
-import platform
 from feargreeddisplay import API_CACHE, Config, load_gif_frames
-
-
-# Skip test if not running on Raspberry Pi (These two lines are for GitHub Actions only and can be removed if not using it)
-if not platform.machine().startswith("arm"):
-    pytest.skip("Skipping test because it's not running on a Raspberry Pi", allow_module_level=True)
 
 
 def test_memory_management():
