@@ -1,5 +1,11 @@
 import pytest
+import platform
+
 from feargreeddisplay import DisplayHATMini, load_fonts, FONT_PATHS
+
+# Skip test if not running on Raspberry Pi (These two lines are for GitHub Actions only and can be removed if not using it)
+if not platform.machine().startswith("arm"):
+    pytest.skip("Skipping test because it's not running on a Raspberry Pi", allow_module_level=True)
 
 def test_display_capabilities():
     """Test display initialization and capabilities with visual demo"""
