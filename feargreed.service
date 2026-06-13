@@ -1,0 +1,16 @@
+[Unit]
+Description=Bitcoin Fear & Greed Display
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Edit User and the paths below to match your install (user, repo location, venv).
+User=pi
+WorkingDirectory=/home/pi/feargreed
+ExecStart=/home/pi/feargreed/venv/bin/python /home/pi/feargreed/feargreeddisplay.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

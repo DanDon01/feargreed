@@ -11,31 +11,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.x'
+    - uses: actions/checkout@v4
 
-    - name: Set PYTHONPATH
-      run: echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        pip install pytest pytest-cov flake8
-    
-    - name: Lint with flake8 (Ignoring Errors)
-      run: |
-        flake8 . --count --max-line-length=120 --statistics || true
-    
+        # Hardware libs (RPi.GPIO, st7789, displayhatmini) are Pi-only;
+        # tests run against the desktop mock with just these
+        pip install numpy pillow requests pytest
+
     - name: Test with pytest
-      run: |
-        pytest tests/ --cov=. --cov-report=xml || true
-    
-    - name: Upload coverage reports
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./coverage.xml
+      run: pytest tests/ -v
