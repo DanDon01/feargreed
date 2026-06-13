@@ -10,3 +10,6 @@ __pycache__/
 
 # Logs
 *.log
+
+# Per-device runtime settings (created on first run from built-in defaults)
+config.json
